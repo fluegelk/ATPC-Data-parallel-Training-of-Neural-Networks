@@ -39,3 +39,36 @@ class PyTorchTutorialNet(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+
+
+class LeNet5(nn.Module):
+    """
+    Neural network LeNet-5 as defined in https://engmrk.com/lenet-5-a-classic-cnn-architecture/
+    Expects inputs of size in_channelsx32x32 and gives outputs of size num_classes.
+    Original LeNet-5 used avg pooling and tanh.
+    """
+
+    def __init__(self, in_channels=3, num_classes=10, updated=False):
+        super(LeNet5, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, 6, 5)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.conv3 = nn.Conv2d(16, 120, 5)
+
+        if updated:
+            self.pool = nn.MaxPool2d(2, 2)
+            self.activation = F.relu
+        else:
+            self.pool = nn.AvgPool2d(2, 2)
+            self.activation = nn.Tanh()
+
+        self.fc1 = nn.Linear(120 * 1 * 1, 84)
+        self.fc2 = nn.Linear(84, num_classes)
+
+    def forward(self, x):
+        x = self.pool(self.activation(self.conv1(x)))
+        x = self.pool(self.activation(self.conv2(x)))
+        x = self.activation(self.conv3(x))
+        x = x.view(-1, 120 * 1 * 1)
+        x = self.activation(self.fc1(x))
+        x = self.fc2(x)
+        return x
