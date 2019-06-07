@@ -1,7 +1,7 @@
-# Display data sets as images with their correct and predicted labels
-# Plot learning rate and accuracies over time
 import matplotlib.pyplot as plt
 import numpy as np
+import datetime
+import os
 
 
 def CIFARImgagePlotPreparation(image):
@@ -61,3 +61,31 @@ def showImgagesAsGrid(images, labels, ncols=10):
 # _, predictedLabels = torch.max(net(images), 1)
 # showImgagesAsGrid(list(map(CIFARImgagePlotPreparation, images)),
 #                       actualVsPredictedClass(actualLabels, predictedLabels, CIFAR10_Classes))
+
+
+def plotTrainingMetaData(trainingMetaData):
+    """
+    Plot a line plot of the training time, validation error and average loss per epoch and store them as PDF in a new
+    directory '%now--trainingData' in 'output'.
+    Prints the exact output directory to console.
+    """
+    trainingTimePerEpoch, validationErrorPerEpoch, averageLossPerEpoch = trainingMetaData
+    epochs = len(trainingTimePerEpoch)
+
+    now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+    path = "outputs/" + now + "--traningData"
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    def plotAndSave(data, label):
+        plt.plot([i for i in range(epochs)], data, label=label)
+        plt.legend(loc=1, mode='expanded', shadow=True, ncol=2)
+        plt.savefig(path + '/' + label)
+        plt.close()
+
+    plotAndSave(data=trainingTimePerEpoch, label="trainingTime")
+    plotAndSave(data=validationErrorPerEpoch, label="validationError")
+    plotAndSave(data=averageLossPerEpoch, label="averageLoss")
+
+    print("Training plots stored at " + path)
