@@ -14,6 +14,11 @@ class Model(Enum):
     LeNet5Updated = 3
 
 
+class DataSet(Enum):
+    MNIST = 1
+    CIFAR10 = 2
+
+
 class PaddingWrapper(object):
     """
     Wrapper class for torchvision.transforms.functional.pad
@@ -97,3 +102,39 @@ def showTestBatch(net, dataset, prepFunc=None):
     if prepFunc is not None:
         images = list(map(prepFunc, images))
     vis.showImgagesAsGrid(images, vis.actualVsPredictedClass(actual, predicted, classes))
+
+
+def main():
+    # Parameters
+    _dataset = DataSet.MNIST
+    in_channels = 3 if _dataset == DataSet.CIFAR10 else 1
+    num_classes = 10
+
+    dataset_path = '../datasets'
+    download = False
+    batch_size = 32
+    dataloader_workers = 2
+
+    epochs = 5
+    _model = Model.LeNet5Updated
+
+    # Load Data
+    dataset = None
+    if _dataset is DataSet.CIFAR10:
+        dataset = loadCIFAR10(dataset_path, download, batch_size, dataloader_workers)
+    else:
+        dataset = loadMNIST(dataset_path, download, batch_size, dataloader_workers)
+
+    # Training
+    net = createNet(_model, in_channels, num_classes)
+    trainingMetaData = train(net, dataset, epochs)
+
+    # Evaluation & Visualisation
+    vis.plotTrainingMetaData(trainingMetaData)
+    printAccuracy(net, dataset)
+    plotPrepFunc = vis.CIFARImgagePlotPreparation if _dataset == DataSet.CIFAR10 else vis.MNISTImgagePlotPreparation
+    showTestBatch(net, dataset, plotPrepFunc)
+
+
+if __name__ == "__main__":
+    main()
