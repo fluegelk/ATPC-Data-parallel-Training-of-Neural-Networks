@@ -1,9 +1,11 @@
 import torch
 import torchvision
 from enum import Enum
+
 import training
 import testing
 import models
+import visualisation as vis
 
 
 class Model(Enum):
@@ -79,3 +81,19 @@ def train(net, dataset, epochs, learning_rate=0.001, momentum=0.9):
 
     return training.train(net, criterion, optimizer, epochs, trainLoader,
                           lambda net: 1 - testing.testAccuracy(net, testLoader, len(classes))[0])
+
+
+def printAccuracy(net, dataset):
+    _, testLoader, classes = dataset
+    totalAccuracy, accuracyByClass = testing.testAccuracy(net, testLoader, len(classes))
+    print('Total Accuracy: %d %%' % (100 * totalAccuracy))
+    testing.printClassAccuracy(classes, accuracyByClass)
+
+
+def showTestBatch(net, dataset, prepFunc=None):
+    _, testLoader, classes = dataset
+    images, actual = iter(testLoader).next()
+    _, predicted = torch.max(net(images), 1)
+    if prepFunc is not None:
+        images = list(map(prepFunc, images))
+    vis.showImgagesAsGrid(images, vis.actualVsPredictedClass(actual, predicted, classes))
