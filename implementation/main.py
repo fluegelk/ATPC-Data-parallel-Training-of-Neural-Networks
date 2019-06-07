@@ -1,5 +1,15 @@
 import torch
 import torchvision
+from enum import Enum
+import training
+import testing
+import models
+
+
+class Model(Enum):
+    PyTorchTutorialNet = 1
+    LeNet5 = 2
+    LeNet5Updated = 3
 
 
 class PaddingWrapper(object):
@@ -51,3 +61,21 @@ def loadCIFAR10(root, download, batch_size, num_workers):
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     return (trainLoader, testLoader, classes)
+
+
+def createNet(model, in_channels=3, num_classes=10):
+    if model == Model.PyTorchTutorialNet:
+        return models.PyTorchTutorialNet(in_channels, num_classes)
+    elif model == Model.LeNet5:
+        return models.LeNet5(in_channels, num_classes, updated=False)
+    elif model == Model.LeNet5Updated:
+        return models.LeNet5(in_channels, num_classes, updated=True)
+
+
+def train(net, dataset, epochs, learning_rate=0.001, momentum=0.9):
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
+    trainLoader, testLoader, classes = dataset
+
+    return training.train(net, criterion, optimizer, epochs, trainLoader,
+                          lambda net: 1 - testing.testAccuracy(net, testLoader, len(classes))[0])
