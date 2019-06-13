@@ -87,7 +87,7 @@ def train(net, dataset, epochs, learning_rate=0.001, momentum=0.9):
     trainLoader, testLoader, classes = dataset
 
     return training.train(net, criterion, optimizer, epochs, trainLoader,
-                          lambda net: 1 - testing.testAccuracy(net, testLoader, len(classes))[0])
+                          lambda net: 1 - testing.computeAccuracy(net, testLoader, len(classes))[0])
 
 
 def printAccuracy(net, dataset):
