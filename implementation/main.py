@@ -1,6 +1,8 @@
 import torch
 import torchvision
 from enum import Enum
+import numpy as np
+import random
 
 import training
 import testing
@@ -104,7 +106,14 @@ def showTestBatch(net, dataset, prepFunc=None):
     vis.showImgagesAsGrid(images, vis.actualVsPredictedClass(actual, predicted, classes))
 
 
+def setRandomSeeds(seed=0):
+    random.seed(a=seed)  # set python seed
+    torch.manual_seed(seed)  # set torch seed
+    np.random.seed(seed)  # set numpy seed
+
+
 def main():
+    setRandomSeeds()
     # Parameters
     _dataset = DataSet.MNIST
     in_channels = 3 if _dataset == DataSet.CIFAR10 else 1
