@@ -1,8 +1,33 @@
+from mpi4py import MPI
 from abc import ABC, abstractmethod
 import math
+import numpy as np
 import progressbar
 import time
 import torch
+
+import testing
+
+comm = MPI.COMM_WORLD
+
+
+def torch_dtype_to_MPI_type(dtype):
+    if dtype == torch.float or dtype == torch.half:
+        return MPI.FLOAT
+    elif dtype == torch.double:
+        return MPI.DOUBLE
+    elif dtype == torch.int64:
+        return MPI.LONG
+    else:
+        return MPI.INT
+
+
+def convertPyTorchTensorToMPIBuffer(tensor):
+    pointer = tensor.data_ptr() + tensor.storage_offset()
+    buffer = MPI.memory.fromaddress(pointer, 0)
+    size = tensor.numel()
+    mpi_type = torch_dtype_to_MPI_type(tensor.dtype)
+    return [buffer, size, mpi_type]
 
 
 def saveCheckpoint(path, net, optimizer, epoch):
@@ -114,3 +139,54 @@ class SequentialTraining(Training):
             summedLoss += loss.item()
             self.epoch_progressbar.update(i + 1)
         self.addMetadata("summedLoss", summedLoss / self.batch_count)
+
+
+class AllReduceTraining(Training):
+    """docstring for AllReduceTraining"""
+
+    def is_root(self):
+        return comm.Get_rank() == 0
+
+    def epoch(self):
+        self.net.train()
+        stats = np.zeros(3)  # loss, computation time, communication time
+        for i, data in enumerate(self.trainloader, 0):
+            startComputation = time.time()
+            # get inputs and zero parameter gradients
+            # TODO: get subset of batch relevant for this node
+            inputs, labels = data
+            self.optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = self.net(inputs)
+            loss = self.criterion(outputs, labels)
+            loss.backward()  # compute the gradients wrt to loss
+
+            # --- naive communication
+            startCommunication = time.time()
+            # average gradients, reduce each gradient separately
+            for param in self.net.parameters():
+                gradientBuffer = convertPyTorchTensorToMPIBuffer(param.grad)
+                comm.Allreduce(MPI.IN_PLACE, gradientBuffer, op=MPI.SUM)
+                param.grad = param.grad / comm.Get_size()
+            endCommunication = time.time()
+            # --- actual naive communication
+
+            self.optimizer.step()  # use the gradients to update the model
+            endComputation = time.time()
+
+            # --- statistics
+            stats[0] += loss.item()
+            commTime = endCommunication - startCommunication
+            stats[1] += endComputation - startComputation - commTime
+            stats[2] += commTime
+
+            if self.is_root():
+                self.epoch_progressbar.update(i + 1)
+
+        # --- statistics
+        comm.Reduce(MPI.IN_PLACE, stats, op=MPI.SUM, root=0)
+        if self.is_root():
+            self.addMetadata("summedLoss", stats[0] / self.batch_count)
+            self.addMetadata("computationTime", stats[1] / self.batch_count)
+            self.addMetadata("communicationTime", stats[2] / self.batch_count)
