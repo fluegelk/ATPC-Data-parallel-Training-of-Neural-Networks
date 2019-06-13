@@ -1,4 +1,6 @@
-# Train a given model on a given data set
+from abc import ABC, abstractmethod
+import math
+import progressbar
 import time
 import torch
 
@@ -20,53 +22,95 @@ def loadCheckpoint(path, net, optimizer):
     return epoch
 
 
-def trainingEpochSequentiel(net, criterion, optimizer, trainloader):
-    net.train()
-    summedLoss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        # get inputs and zero parameter gradients
-        inputs, labels = data
-        optimizer.zero_grad()
+class Training(ABC):
+    """docstring for Training"""
 
-        # forward + backward + optimize
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()  # compute the gradients wrt to loss
-        optimizer.step()  # use the gradients to update the model
+    def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf):
+        super(Training, self).__init__()
+        self.net = net
+        self.criterion = criterion
+        self.optimizer = optimizer
+        self.trainloader = trainloader
+        self.testloader = testloader
 
-        # print statistics
-        summedLoss += loss.item()
-    return summedLoss / len(trainloader)
+        self.current_epoch = 0
+        self.max_epochs = max_epochs
+
+        # element_count = dataloader.dataset.data.shape[0]
+        # self.batch_count = math.ceil(element_count / dataloader.batch_size)
+        self.batch_count = len(trainloader)
+
+        self.epoch_progressbar = progressbar.ProgressBar(maxval=self.batch_count, widgets=[progressbar.Bar(
+            '=', '[', ']'), ' ', progressbar.Percentage()])
+
+        self.metadata = {}
+
+    def addMetadata(self, key, value):
+        if key not in self.metadata:
+            self.metadata[key] = list()
+        self.metadata[key].append((self.current_epoch, value))
+
+    def validationError(self):
+        return 1 - testing.computeAccuracy(self.net, self.testloader)
+
+    def validationLoss(self):
+        return testing.computeAverageLoss(self.net, self.testloader, self.criterion)
+
+    @abstractmethod
+    def epoch(self):
+        pass  # must be implemented in non-abstract sub classes
+
+    def is_root(self):
+        return True
+
+    def stopCriterion(self):
+        return self.current_epoch >= self.max_epochs
+
+    def epochHelper(self):
+        if self.is_root():
+            self.epoch_progressbar.start()
+            start = time.time()
+
+        self.epoch()
+
+        if self.is_root():
+            end = time.time()
+            self.epoch_progressbar.finish()
+
+            trainingTime = end - start
+            error = self.validationError()
+            loss = self.validationLoss()
+            self.addMetadata("trainingTime", trainingTime)
+            self.addMetadata("validationError", error)
+            self.addMetadata("validationLoss", loss)
+
+            msg = 'Epoch {}\t: Running time {:.2f} s\t Error: {:.1f}%'
+            print(msg.format(self.current_epoch, trainingTime, error * 100))
+            self.current_epoch += 1
+
+    def train(self):
+        # loop over the training dataset until the stopCriterion is met
+        while not self.stopCriterion():
+            self.epochHelper()
 
 
-def train(net, criterion, optimizer, epochs, trainloader, validationError):
-    """
-    Train a neural network using a given criterion and optimizer for a number of epochs on a set of training data.
+class SequentialTraining(Training):
+    """docstring for SequentialTraining"""
 
-    @param      net              The neural network to train
-    @param      criterion        The criterion to use for the loss
-    @param      optimizer        The optimizer to use
-    @param      epochs           The number of epochs to train
-    @param      trainloader      The data loader for the training data set
-    @param      validationError  The function to compute the validation error
+    def epoch(self):
+        self.net.train()
+        summedLoss = 0.0
+        for i, data in enumerate(self.trainloader, 0):
+            # get inputs and zero parameter gradients
+            inputs, labels = data
+            self.optimizer.zero_grad()
 
-    @return     A list of the following meta data per epoch: training time, validation error, and average loss.
-    """
+            # forward + backward + optimize
+            outputs = self.net(inputs)
+            loss = self.criterion(outputs, labels)
+            loss.backward()  # compute the gradients wrt to loss
+            self.optimizer.step()  # use the gradients to update the model
 
-    trainingTimePerEpoch = list()
-    validationErrorPerEpoch = list()
-    averageLossPerEpoch = list()
-
-    for epoch in range(epochs):  # loop over the dataset multiple times
-        start = time.time()
-        averageLoss = trainingEpochSequentiel(net, criterion, optimizer, trainloader)
-        end = time.time()
-
-        trainingTimePerEpoch.append(end - start)
-        error = validationError(net)
-        validationErrorPerEpoch.append(error)
-        averageLossPerEpoch.append(averageLoss)
-
-        print('Epoch {}\t: Running time {:.2f} s\t Error: {:.1f}%'.format(epoch, end - start, error * 100))
-
-    return trainingTimePerEpoch, validationErrorPerEpoch, averageLossPerEpoch
+            summedLoss += loss.item()
+            self.epoch_progressbar.update(i + 1)
+        self.addMetadata("summedLoss", summedLoss / self.batch_count)

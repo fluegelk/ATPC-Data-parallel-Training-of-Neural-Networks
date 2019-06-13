@@ -69,7 +69,7 @@ def plotTrainingMetaData(trainingMetaData):
     directory '%now--trainingData' in 'output'.
     Prints the exact output directory to console.
     """
-    trainingTimePerEpoch, validationErrorPerEpoch, averageLossPerEpoch = trainingMetaData
+    trainingTimePerEpoch, averageLossPerEpoch, validationErrorPerEpoch = trainingMetaData
     epochs = len(trainingTimePerEpoch)
 
     now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")

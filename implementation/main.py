@@ -81,18 +81,9 @@ def createNet(model, in_channels=3, num_classes=10):
         return models.LeNet5(in_channels, num_classes, updated=True)
 
 
-def train(net, dataset, epochs, learning_rate=0.001, momentum=0.9):
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
-    trainLoader, testLoader, classes = dataset
-
-    return training.train(net, criterion, optimizer, epochs, trainLoader,
-                          lambda net: 1 - testing.computeAccuracy(net, testLoader, len(classes))[0])
-
-
 def printAccuracy(net, dataset):
     _, testLoader, classes = dataset
-    totalAccuracy, accuracyByClass = testing.testAccuracy(net, testLoader, len(classes))
+    totalAccuracy, accuracyByClass = testing.computeAccuracy(net, testLoader, len(classes))
     print('Total Accuracy: %d %%' % (100 * totalAccuracy))
     testing.printClassAccuracy(classes, accuracyByClass)
 
@@ -124,8 +115,10 @@ def main():
     batch_size = 32
     dataloader_workers = 2
 
-    epochs = 5
-    _model = Model.LeNet5Updated
+    epochs = 1
+    learning_rate = 0.001
+    momentum = 0.9
+    model = Model.PyTorchTutorialNet
 
     # Load Data
     dataset = None
@@ -133,16 +126,15 @@ def main():
         dataset = loadCIFAR10(dataset_path, download, batch_size, dataloader_workers)
     else:
         dataset = loadMNIST(dataset_path, download, batch_size, dataloader_workers)
+    trainLoader, testLoader, classes = dataset
 
     # Training
-    net = createNet(_model, in_channels, num_classes)
-    trainingMetaData = train(net, dataset, epochs)
+    net = createNet(model, in_channels, num_classes)
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
 
-    # Evaluation & Visualisation
-    vis.plotTrainingMetaData(trainingMetaData)
-    printAccuracy(net, dataset)
-    plotPrepFunc = vis.CIFARImgagePlotPreparation if _dataset == DataSet.CIFAR10 else vis.MNISTImgagePlotPreparation
-    showTestBatch(net, dataset, plotPrepFunc)
+    trainObj = training.SequentialTraining(net, criterion, optimizer, trainLoader, testLoader, epochs)
+    trainObj.train()
 
 
 if __name__ == "__main__":
