@@ -1,6 +1,18 @@
 import torch
 
 
+def computeAverageLoss(net, dataloader, lossCriterion):
+    summedLoss = 0.
+    with torch.no_grad():
+        net.eval()
+        for data in dataloader:
+            images, labels = data
+            outputs = net(images)
+            loss = lossCriterion(outputs, labels)
+            summedLoss += loss.item()
+    return summedLoss / len(dataloader)
+
+
 def computeAccuracy(net, dataloader, numClasses=None):
     """
     @brief      Test a given (trained) model on a set of test data. Determine total accuracy and accuracy per class.
