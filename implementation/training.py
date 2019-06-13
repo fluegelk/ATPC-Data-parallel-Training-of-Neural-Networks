@@ -50,7 +50,8 @@ def loadCheckpoint(path, net, optimizer):
 class Training(ABC):
     """docstring for Training"""
 
-    def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf):
+    def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf,
+                 max_epochs_without_improvement=10):
         super(Training, self).__init__()
         self.net = net
         self.criterion = criterion
@@ -60,15 +61,16 @@ class Training(ABC):
 
         self.current_epoch = 0
         self.max_epochs = max_epochs
+        self.bestValidationLoss = math.inf
+        self.epochsSinceLastImprovement = 0
+        self.max_epochs_without_improvement = max_epochs_without_improvement
 
-        # element_count = dataloader.dataset.data.shape[0]
-        # self.batch_count = math.ceil(element_count / dataloader.batch_size)
         self.batch_count = len(trainloader)
-
         self.epoch_progressbar = progressbar.ProgressBar(maxval=self.batch_count, widgets=[progressbar.Bar(
             '=', '[', ']'), ' ', progressbar.Percentage()])
 
         self.metadata = {}
+        self.totalTime = 0.
 
     def addMetadata(self, key, value):
         if key not in self.metadata:
@@ -89,7 +91,9 @@ class Training(ABC):
         return True
 
     def stopCriterion(self):
-        return self.current_epoch >= self.max_epochs
+        maxEpochsCriterion = self.current_epoch >= self.max_epochs
+        improvementCriterion = self.epochsSinceLastImprovement >= self.max_epochs_without_improvement
+        return maxEpochsCriterion or improvementCriterion
 
     def epochHelper(self):
         if self.is_root():
@@ -105,18 +109,31 @@ class Training(ABC):
             trainingTime = end - start
             error = self.validationError()
             loss = self.validationLoss()
+
+            if loss < self.bestValidationLoss:
+                self.bestValidationLoss = loss
+                self.epochsSinceLastImprovement = 0
+            else:
+                self.epochsSinceLastImprovement += 1
+
             self.addMetadata("trainingTime", trainingTime)
             self.addMetadata("validationError", error)
             self.addMetadata("validationLoss", loss)
 
-            msg = 'Epoch {}\t: Running time {:.2f} s\t Error: {:.1f}%'
-            print(msg.format(self.current_epoch, trainingTime, error * 100))
+            msg = '\nEpoch {}\t: Running time {:.2f} s\t Error: {:.1f}%\t Validation Loss: {:.2f}'
+            print(msg.format(self.current_epoch, trainingTime, error * 100, loss))
             self.current_epoch += 1
 
     def train(self):
+        start = time.time()
         # loop over the training dataset until the stopCriterion is met
         while not self.stopCriterion():
             self.epochHelper()
+        comm.Barrier()
+
+        if self.is_root():
+            end = time.time()
+            self.totalTime
 
 
 class SequentialTraining(Training):
