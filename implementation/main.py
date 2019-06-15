@@ -3,6 +3,7 @@ import torchvision
 from enum import Enum
 import numpy as np
 import random
+import datetime
 
 import training
 import testing
@@ -115,10 +116,12 @@ def main():
     batch_size = 32
     dataloader_workers = 2
 
-    epochs = 1
+    epochs = 5
     learning_rate = 0.001
     momentum = 0.9
     model = Model.PyTorchTutorialNet
+
+    now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
 
     # Load Data
     dataset = None
@@ -135,6 +138,7 @@ def main():
 
     trainObj = training.SequentialTraining(net, criterion, optimizer, trainLoader, testLoader, epochs)
     trainObj.train()
+    trainObj.saveMetadata("outputs/results__" + now)
 
 
 if __name__ == "__main__":

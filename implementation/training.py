@@ -50,6 +50,11 @@ def loadCheckpoint(path, net, optimizer):
 class Training(ABC):
     """docstring for Training"""
 
+    header_epochMetadata = "epoch\ttotalTime\tcomputationTime\tcommunicationTime\tvalidationError\tvalidationLoss\ttrainingLoss"
+    header_summaryMetadata = "epochCount\ttotalTime\tvalidationError\tvalidationLoss\tbatchSize\tnodeCount"
+    epochMetadataKeys = {"epoch": 0, "totalTime": 1, "computationTime": 2,
+                         "communicationTime": 3, "validationError": 4, "validationLoss": 5, "trainingLoss": 6}
+
     def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf,
                  max_epochs_without_improvement=10):
         super(Training, self).__init__()
@@ -69,13 +74,20 @@ class Training(ABC):
         self.epoch_progressbar = progressbar.ProgressBar(maxval=self.batch_count, widgets=[progressbar.Bar(
             '=', '[', ']'), ' ', progressbar.Percentage()])
 
-        self.metadata = {}
-        self.totalTime = 0.
+        self.batch_size = trainloader.batch_size
+        self.node_count = comm.Get_size()
+
+        self.epochMetadata = np.zeros((0, 7))
+
+    def saveMetadata(self, path):
+        np.savetxt(path + "__epochs", self.epochMetadata, delimiter='\t', comments='', header=self.header_epochMetadata)
+        np.savetxt(path + "__summary", self.summaryMetadata, delimiter='\t', comments='',
+                   header=self.header_summaryMetadata)
 
     def addMetadata(self, key, value):
-        if key not in self.metadata:
-            self.metadata[key] = list()
-        self.metadata[key].append((self.current_epoch, value))
+        if key in self.epochMetadataKeys:
+            index = self.epochMetadataKeys[key]
+            self.epochMetadata[self.current_epoch][index] = value
 
     def validationError(self):
         return 1 - testing.computeAccuracy(self.net, self.testloader)
@@ -97,6 +109,7 @@ class Training(ABC):
 
     def epochHelper(self):
         if self.is_root():
+            self.epochMetadata = np.append(self.epochMetadata, np.zeros((1, 7)), axis=0)
             self.epoch_progressbar.start()
             start = time.time()
 
@@ -106,7 +119,7 @@ class Training(ABC):
             end = time.time()
             self.epoch_progressbar.finish()
 
-            trainingTime = end - start
+            totalTime = end - start
             error = self.validationError()
             loss = self.validationLoss()
 
@@ -116,12 +129,13 @@ class Training(ABC):
             else:
                 self.epochsSinceLastImprovement += 1
 
-            self.addMetadata("trainingTime", trainingTime)
+            self.addMetadata("totalTime", totalTime)
             self.addMetadata("validationError", error)
             self.addMetadata("validationLoss", loss)
+            self.addMetadata("epoch", self.current_epoch)
 
             msg = '\nEpoch {}\t: Running time {:.2f} s\t Error: {:.1f}%\t Validation Loss: {:.2f}'
-            print(msg.format(self.current_epoch, trainingTime, error * 100, loss))
+            print(msg.format(self.current_epoch, totalTime, error * 100, loss))
             self.current_epoch += 1
 
     def train(self):
@@ -130,10 +144,16 @@ class Training(ABC):
         while not self.stopCriterion():
             self.epochHelper()
         comm.Barrier()
+        end = time.time()
 
         if self.is_root():
-            end = time.time()
-            self.totalTime
+            self.epochMetadata
+            self.totalTime = end - start
+            self.totalEpochs = self.current_epoch
+            self.finalValidationError = self.validationError()
+            self.finalValidationLoss = self.validationLoss()
+            self.summaryMetadata = np.array([[self.totalEpochs, self.totalTime, self.finalValidationError,
+                                              self.finalValidationLoss, self.batch_size, self.node_count]])
 
 
 class SequentialTraining(Training):
@@ -155,7 +175,7 @@ class SequentialTraining(Training):
 
             summedLoss += loss.item()
             self.epoch_progressbar.update(i + 1)
-        self.addMetadata("summedLoss", summedLoss / self.batch_count)
+        self.addMetadata("trainingLoss", summedLoss / self.batch_count)
 
 
 class AllReduceTraining(Training):
@@ -204,6 +224,6 @@ class AllReduceTraining(Training):
         # --- statistics
         comm.Reduce(MPI.IN_PLACE, stats, op=MPI.SUM, root=0)
         if self.is_root():
-            self.addMetadata("summedLoss", stats[0] / self.batch_count)
+            self.addMetadata("trainingLoss", stats[0] / self.batch_count)
             self.addMetadata("computationTime", stats[1] / self.batch_count)
             self.addMetadata("communicationTime", stats[2] / self.batch_count)
