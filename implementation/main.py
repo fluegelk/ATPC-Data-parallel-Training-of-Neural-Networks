@@ -5,6 +5,7 @@ import numpy as np
 import random
 import datetime
 
+import HDF5Adapter as h5
 import training
 import testing
 import models
@@ -34,9 +35,8 @@ def printAccuracy(net, dataset):
     testing.printClassAccuracy(classes, accuracyByClass)
 
 
-def showTestBatch(net, dataset, prepFunc=None):
-    _, testLoader, classes = dataset
-    images, actual = iter(testLoader).next()
+def showTestBatch(net, testLoader, classes, prepFunc=None):
+    images, actual = next(iter(testLoader))
     _, predicted = torch.max(net(images), 1)
     if prepFunc is not None:
         images = list(map(prepFunc, images))
@@ -69,12 +69,15 @@ def main():
     now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
 
     # Load Data
-    dataset = None
+    trainLoader, testLoader, classes = None, None, None
     if _dataset is DataSet.CIFAR10:
-        dataset = loadTorchCIFAR10(dataset_path, download, batch_size, dataloader_workers)
+        trainLoader = h5.HDF5DataLoader(dataset_path + "CIFAR10.hdf5", batch_size, train=True)
+        testLoader = h5.HDF5DataLoader(dataset_path + "CIFAR10.hdf5", batch_size, train=False)
+        classes = testLoader.get_classes()
     else:
-        dataset = loadTorchMNIST(dataset_path, download, batch_size, dataloader_workers)
-    trainLoader, testLoader, classes = dataset
+        trainLoader = h5.HDF5DataLoader(dataset_path + "MNIST.hdf5", batch_size, train=True)
+        testLoader = h5.HDF5DataLoader(dataset_path + "MNIST.hdf5", batch_size, train=False)
+        classes = testLoader.get_classes()
 
     # Training
     net = createNet(model, in_channels, num_classes)

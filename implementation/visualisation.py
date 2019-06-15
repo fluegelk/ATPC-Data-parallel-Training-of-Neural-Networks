@@ -4,13 +4,13 @@ import datetime
 import os
 
 
-def CIFARImgagePlotPreparation(image):
+def CIFARImagePlotPreparation(image):
     image = image / 2 + 0.5     # unnormalize
     npimg = image.numpy()
     return np.transpose(npimg, (1, 2, 0))  # transpose (RGB channels to end)
 
 
-def MNISTImgagePlotPreparation(image):
+def MNISTImagePlotPreparation(image):
     img = np.transpose(image.numpy(), (1, 2, 0))  # transpose
     return np.squeeze(img)
 

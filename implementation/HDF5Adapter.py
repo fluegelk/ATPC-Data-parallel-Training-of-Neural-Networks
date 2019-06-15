@@ -1,4 +1,5 @@
 import h5py
+import math
 import torch
 import torchvision
 import numpy as np
@@ -40,3 +41,60 @@ def convertMNISTToHDF5(root, path, download=True):
 def convertCIFAR10ToHDF5(root, path, download=True):
     trainset, testset, classes = datasets.loadTorchDatasetCIFAR10(root, download)
     return convertToHDF5(path, trainset, testset, classes)
+
+
+class HDF5DataLoader(object):
+    """docstring for HDF5DataLoader"""
+
+    def __init__(self, path, batch_size, train):
+        self.h5file = h5py.File(path, mode='r')  # open file
+        self.batch_size = batch_size
+        self.train = train
+        self.group = "train" if train else "test"
+
+        self.labels = self.h5file[self.group + "/labels"]
+        self.images = self.h5file[self.group + "/images"]
+        self.classes = self.labels.attrs['classes']
+
+        self.sample_count = len(self.labels)
+        self.batch_count = math.ceil(self.sample_count / self.batch_size)
+
+        self.currentBatch = 0
+
+    def get_classes(self):
+        return self.classes
+
+    def batch_start_index(self, batch_index):
+        if batch_index >= self.batch_count:
+            return self.sample_count
+        else:
+            return batch_index * self.batch_size
+
+    def set_batch_size(self, batch_size):
+        self.batch_size = batch_size
+        self.batch_count = math.ceil(self.sample_count / self.batch_size)
+
+    def get_batch(self, batch_index):
+        start_index = self.batch_start_index(batch_index)
+        end_index = self.batch_start_index(batch_index + 1)
+        images = torch.from_numpy(self.images[start_index:end_index])
+        labels = torch.from_numpy(self.labels[start_index:end_index])
+        return [images, labels]
+
+    def __getitem__(self, index):
+        return self.get_batch(index)
+
+    def __len__(self):
+        return self.batch_count
+
+    def __next__(self):
+        if self.currentBatch < self.batch_count:
+            batch = self.get_batch(self.currentBatch)
+            self.currentBatch += 1
+            return batch
+        raise StopIteration()
+
+    def __iter__(self):
+        # TODO: allow calling __iter__ multiple times concurrently on the same data loader?
+        self.currentBatch = 0
+        return self
