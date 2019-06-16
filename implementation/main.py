@@ -4,6 +4,7 @@ from enum import Enum
 import numpy as np
 import random
 import datetime
+import math
 
 import HDF5Adapter as h5
 import training
@@ -19,13 +20,53 @@ class Model(Enum):
     LeNet5Updated = 3
 
 
+class DataLoader(Enum):
+    SequentialHDF5 = 1
+    ParallelHDF5 = 2
+    Torch = 3
+
+
+class Training(Enum):
+    Sequential = 1
+    AllReduce = 2
+
+
 def createNet(model, in_channels=3, num_classes=10):
-    if model == Model.PyTorchTutorialNet:
+    if model is Model.PyTorchTutorialNet:
         return models.PyTorchTutorialNet(in_channels, num_classes)
-    elif model == Model.LeNet5:
+    elif model is Model.LeNet5:
         return models.LeNet5(in_channels, num_classes, updated=False)
-    elif model == Model.LeNet5Updated:
+    elif model is Model.LeNet5Updated:
         return models.LeNet5(in_channels, num_classes, updated=True)
+    print("Error: invalid model type")
+
+
+def createDataLoaders(dlType, path, batch_size, dataset=DataSet.CIFAR10):
+    if dlType is DataLoader.SequentialHDF5:
+        trainLoader = h5.HDF5DataLoader(path, batch_size, train=True)
+        testLoader = h5.HDF5DataLoader(path, batch_size, train=False)
+        return trainLoader, testLoader, testLoader.classes
+    elif dlType is DataLoader.ParallelHDF5:
+        trainLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=True)
+        testLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=False)
+        return trainLoader, testLoader, testLoader.classes
+    elif dlType is DataLoader.Torch:
+        if _dataset is DataSet.CIFAR10:
+            return loadTorchCIFAR10(path, True, batch_size)
+        elif _dataset is DataSet.MNIST:
+            return loadTorchMNIST(path, True, batch_size)
+    print("Error: invalid data loader type")
+
+
+def createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs=math.inf,
+                   max_epochs_without_improvement=10):
+    if trainingType is Training.Sequential:
+        return training.SequentialTraining(net, criterion, optimizer, trainLoader,
+                                           testLoader, max_epochs, max_epochs_without_improvement)
+    elif trainingType is Training.AllReduce:
+        return training.AllReduceTraining(net, criterion, optimizer, trainLoader,
+                                          testLoader, max_epochs, max_epochs_without_improvement)
+    print("Error: invalid training type")
 
 
 def printAccuracy(net, dataset):
@@ -52,39 +93,34 @@ def setRandomSeeds(seed=0):
 def main():
     setRandomSeeds()
     # Parameters
-    _dataset = DataSet.MNIST
-    in_channels = 3 if _dataset == DataSet.CIFAR10 else 1
-    num_classes = 10
+    datasetType = DataSet.MNIST
+    dataLoaderType = DataLoader.SequentialHDF5
+    modelType = Model.PyTorchTutorialNet
+    trainingType = Training.Sequential
 
-    dataset_path = '../datasets/'
-    download = False
-    batch_size = 32
-    dataloader_workers = 2
-
-    epochs = 5
+    max_epochs = 0
+    max_epochs_without_improvement = 10
     learning_rate = 0.001
     momentum = 0.9
-    model = Model.PyTorchTutorialNet
+    batch_size = 64
+
+    dataset_path = '../datasets/'
+    in_channels = 3 if datasetType is DataSet.CIFAR10 else 1
+    num_classes = 10
 
     now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
 
     # Load Data
-    trainLoader, testLoader, classes = None, None, None
-    if _dataset is DataSet.CIFAR10:
-        trainLoader = h5.HDF5DataLoader(dataset_path + "CIFAR10.hdf5", batch_size, train=True)
-        testLoader = h5.HDF5DataLoader(dataset_path + "CIFAR10.hdf5", batch_size, train=False)
-        classes = testLoader.get_classes()
-    else:
-        trainLoader = h5.HDF5DataLoader(dataset_path + "MNIST.hdf5", batch_size, train=True)
-        testLoader = h5.HDF5DataLoader(dataset_path + "MNIST.hdf5", batch_size, train=False)
-        classes = testLoader.get_classes()
+    path = dataset_path + datasetType.name + ".hdf5"
+    trainLoader, testLoader, classes = createDataLoaders(dataLoaderType, path, batch_size, dataset=datasetType)
 
     # Training
-    net = createNet(model, in_channels, num_classes)
+    net = createNet(modelType, in_channels, num_classes)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
 
-    trainObj = training.SequentialTraining(net, criterion, optimizer, trainLoader, testLoader, epochs)
+    trainObj = createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs,
+                              max_epochs_without_improvement)
     trainObj.train()
     trainObj.saveMetadata("outputs/results__" + now)
 
