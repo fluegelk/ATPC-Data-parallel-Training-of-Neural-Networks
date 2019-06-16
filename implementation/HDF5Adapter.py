@@ -3,6 +3,7 @@ import math
 import torch
 import torchvision
 import numpy as np
+from mpi4py import MPI
 
 import datasets
 
@@ -94,3 +95,39 @@ class HDF5DataLoader(object):
         # TODO: allow calling __iter__ multiple times concurrently on the same data loader?
         self.currentBatch = 0
         return self
+
+
+class ParallelHDF5DataLoader(HDF5DataLoader):
+    """docstring for ParallelHDF5DataLoader"""
+
+    def __init__(self, path, batch_size, train, comm=MPI.COMM_WORLD):
+        self.comm = comm
+        self.node_count = 1 if comm == None else comm.Get_size()
+
+        super().__init__(path, batch_size, train)
+
+        # if comm != None:  # open file in parallel mode TODO necessary?
+        #     self.h5file = h5py.File(path, mode='r', driver='mpio', comm=self.comm)
+
+    def set_batch_size(self, batch_size):
+        assert (batch_size % self.node_count == 0), "Batch size must be divisible by MPI node count!"
+        super().set_batch_size(batch_size)
+        self.batch_size_per_node = math.ceil(self.batch_size / self.node_count)
+
+    def _batch_subset_start_index(self, batch_index, subset_index):
+        if batch_index >= self.batch_count:
+            return self.sample_count
+        elif subset_index >= self.node_count:
+            return self._batch_subset_start_index(batch_index + 1, 0)
+        else:
+            return batch_index * self.batch_size + subset_index * self.batch_size_per_node
+
+    def get_batch_subset(self, batch_index, subset_index):
+        start_index = self._batch_subset_start_index(batch_index, subset_index)
+        end_index = self._batch_subset_start_index(batch_index, subset_index + 1)
+        images = torch.from_numpy(self.images[start_index:end_index])
+        labels = torch.from_numpy(self.labels[start_index:end_index])
+        return [images, labels]
+
+    def __getitem__(self, index):
+        return self.get_batch_subset(index, self.comm.Get_rank())
