@@ -110,6 +110,19 @@ def main():
 
     now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
 
+    config = {
+        "dataset": datasetType.name,
+        "dataLoader": dataLoaderType.name,
+        "model": modelType.name,
+        "training": trainingType.name,
+        "max_epochs": max_epochs,
+        "max_epochs_without_improvement": max_epochs_without_improvement,
+        "learning_rate": learning_rate,
+        "momentum": momentum,
+        "batch_size": batch_size,
+        "date": now}
+    metadata = "\n# " + str(config)
+
     # Load Data
     path = dataset_path + datasetType.name + ".hdf5"
     trainLoader, testLoader, classes = createDataLoaders(dataLoaderType, path, batch_size, dataset=datasetType)
@@ -122,7 +135,8 @@ def main():
     trainObj = createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs,
                               max_epochs_without_improvement)
     trainObj.train()
-    trainObj.saveMetadata("outputs/results__" + now)
+
+    trainObj.saveResults("outputs/results__" + now, comment=metadata)
 
 
 if __name__ == "__main__":

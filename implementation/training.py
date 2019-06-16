@@ -79,11 +79,11 @@ class Training(ABC):
 
         self.epochData = np.zeros((0, 7))
 
-    def saveResults(self, path):
+    def saveResults(self, path, comment=''):
         np.savetxt(path + "__epochs", self.epochData, delimiter='\t',
-                   comments='', header=self.header_epochData)
+                   comments='', header=self.header_epochData, footer=comment)
         np.savetxt(path + "__summary", self.summaryData, delimiter='\t', comments='',
-                   header=self.header_summaryData)
+                   header=self.header_summaryData, footer=comment)
 
     def addMetadata(self, key, value):
         if key in self.epochDataKeys:
