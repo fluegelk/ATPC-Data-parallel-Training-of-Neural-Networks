@@ -48,7 +48,7 @@ class HDF5DataLoader(object):
 
     def __init__(self, path, batch_size, train):
         self.h5file = h5py.File(path, mode='r')  # open file
-        self.batch_size = batch_size
+
         self.train = train
         self.group = "train" if train else "test"
 
@@ -57,26 +57,22 @@ class HDF5DataLoader(object):
         self.classes = self.labels.attrs['classes']
 
         self.sample_count = len(self.labels)
-        self.batch_count = math.ceil(self.sample_count / self.batch_size)
-
+        self.set_batch_size(batch_size)
         self.currentBatch = 0
-
-    def get_classes(self):
-        return self.classes
-
-    def batch_start_index(self, batch_index):
-        if batch_index >= self.batch_count:
-            return self.sample_count
-        else:
-            return batch_index * self.batch_size
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
         self.batch_count = math.ceil(self.sample_count / self.batch_size)
 
+    def _batch_start_index(self, batch_index):
+        if batch_index >= self.batch_count:
+            return self.sample_count
+        else:
+            return batch_index * self.batch_size
+
     def get_batch(self, batch_index):
-        start_index = self.batch_start_index(batch_index)
-        end_index = self.batch_start_index(batch_index + 1)
+        start_index = self._batch_start_index(batch_index)
+        end_index = self._batch_start_index(batch_index + 1)
         images = torch.from_numpy(self.images[start_index:end_index])
         labels = torch.from_numpy(self.labels[start_index:end_index])
         return [images, labels]
@@ -89,7 +85,7 @@ class HDF5DataLoader(object):
 
     def __next__(self):
         if self.currentBatch < self.batch_count:
-            batch = self.get_batch(self.currentBatch)
+            batch = self.__getitem__(self.currentBatch)
             self.currentBatch += 1
             return batch
         raise StopIteration()
