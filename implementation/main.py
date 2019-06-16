@@ -54,9 +54,9 @@ def createDataLoaders(dlType, path, batch_size, dataset=DataSet.CIFAR10):
         testLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=False)
         return trainLoader, testLoader, testLoader.classes
     elif dlType is DataLoader.Torch:
-        if _dataset is DataSet.CIFAR10:
+        if dataset is DataSet.CIFAR10:
             return loadTorchCIFAR10(path, True, batch_size)
-        elif _dataset is DataSet.MNIST:
+        elif dataset is DataSet.MNIST:
             return loadTorchMNIST(path, True, batch_size)
     print("Error: invalid data loader type")
 
@@ -127,7 +127,7 @@ def main():
     metadata = "\n# " + str(config)
 
     # Load Data
-    path = dataset_path + datasetType.name + ".hdf5"
+    path = dataset_path if dataLoaderType is DataLoader.Torch else (dataset_path + datasetType.name + ".hdf5")
     trainLoader, testLoader, classes = createDataLoaders(dataLoaderType, path, batch_size, dataset=datasetType)
 
     # Training

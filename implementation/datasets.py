@@ -57,5 +57,5 @@ def loadTorchDatasetCIFAR10(root, download):
 def loadTorchCIFAR10(root, download, batch_size, num_workers=0):
     trainset, testset, classes = loadTorchDatasetCIFAR10(root, download)
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    testset = torchvision.datasets.CIFAR10(root=root, train=False, download=download, transform=transform)
+    testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return trainLoader, testLoader, classes
