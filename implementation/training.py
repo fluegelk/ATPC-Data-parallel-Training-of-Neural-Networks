@@ -50,10 +50,10 @@ def loadCheckpoint(path, net, optimizer):
 class Training(ABC):
     """docstring for Training"""
 
-    header_epochMetadata = "epoch\ttotalTime\tcomputationTime\tcommunicationTime\tvalidationError\tvalidationLoss\ttrainingLoss"
-    header_summaryMetadata = "epochCount\ttotalTime\tvalidationError\tvalidationLoss\tbatchSize\tnodeCount"
-    epochMetadataKeys = {"epoch": 0, "totalTime": 1, "computationTime": 2,
-                         "communicationTime": 3, "validationError": 4, "validationLoss": 5, "trainingLoss": 6}
+    header_epochData = "epoch\ttotalTime\tcomputationTime\tcommunicationTime\tvalidationError\tvalidationLoss\ttrainingLoss"
+    header_summaryData = "epochCount\ttotalTime\tvalidationError\tvalidationLoss\tbatchSize\tnodeCount"
+    epochDataKeys = {"epoch": 0, "totalTime": 1, "computationTime": 2,
+                     "communicationTime": 3, "validationError": 4, "validationLoss": 5, "trainingLoss": 6}
 
     def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf,
                  max_epochs_without_improvement=10):
@@ -77,17 +77,18 @@ class Training(ABC):
         self.batch_size = trainloader.batch_size
         self.node_count = comm.Get_size()
 
-        self.epochMetadata = np.zeros((0, 7))
+        self.epochData = np.zeros((0, 7))
 
-    def saveMetadata(self, path):
-        np.savetxt(path + "__epochs", self.epochMetadata, delimiter='\t', comments='', header=self.header_epochMetadata)
-        np.savetxt(path + "__summary", self.summaryMetadata, delimiter='\t', comments='',
-                   header=self.header_summaryMetadata)
+    def saveResults(self, path):
+        np.savetxt(path + "__epochs", self.epochData, delimiter='\t',
+                   comments='', header=self.header_epochData)
+        np.savetxt(path + "__summary", self.summaryData, delimiter='\t', comments='',
+                   header=self.header_summaryData)
 
     def addMetadata(self, key, value):
-        if key in self.epochMetadataKeys:
-            index = self.epochMetadataKeys[key]
-            self.epochMetadata[self.current_epoch][index] = value
+        if key in self.epochDataKeys:
+            index = self.epochDataKeys[key]
+            self.epochData[self.current_epoch][index] = value
 
     def validationError(self):
         return 1 - testing.computeAccuracy(self.net, self.testloader)
@@ -109,7 +110,7 @@ class Training(ABC):
 
     def epochHelper(self):
         if self.is_root():
-            self.epochMetadata = np.append(self.epochMetadata, np.zeros((1, 7)), axis=0)
+            self.epochData = np.append(self.epochData, np.zeros((1, 7)), axis=0)
             self.epoch_progressbar.start()
             start = time.time()
 
@@ -147,13 +148,13 @@ class Training(ABC):
         end = time.time()
 
         if self.is_root():
-            self.epochMetadata
+            self.epochData
             self.totalTime = end - start
             self.totalEpochs = self.current_epoch
             self.finalValidationError = self.validationError()
             self.finalValidationLoss = self.validationLoss()
-            self.summaryMetadata = np.array([[self.totalEpochs, self.totalTime, self.finalValidationError,
-                                              self.finalValidationLoss, self.batch_size, self.node_count]])
+            self.summaryData = np.array([[self.totalEpochs, self.totalTime, self.finalValidationError,
+                                          self.finalValidationLoss, self.batch_size, self.node_count]])
 
 
 class SequentialTraining(Training):
