@@ -5,6 +5,9 @@ import numpy as np
 import random
 import datetime
 import math
+from mpi4py import MPI
+
+comm = MPI.COMM_WORLD
 
 import HDF5Adapter as h5
 import training
@@ -136,7 +139,8 @@ def main():
                               max_epochs_without_improvement)
     trainObj.train()
 
-    trainObj.saveResults("outputs/results__" + now, comment=metadata)
+    if comm.Get_rank() == 0:
+        trainObj.saveResults("outputs/results__" + now, comment=metadata)
 
 
 if __name__ == "__main__":
