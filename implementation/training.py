@@ -137,7 +137,9 @@ class Training(ABC):
 
             msg = '\nEpoch {}\t: Running time {:.2f} s\t Error: {:.1f}%\t Validation Loss: {:.2f}'
             print(msg.format(self.current_epoch, totalTime, error * 100, loss))
-            self.current_epoch += 1
+
+        self.epochsSinceLastImprovement = comm.bcast(self.epochsSinceLastImprovement, root=0)
+        self.current_epoch += 1
 
     def train(self):
         start = time.time()
@@ -188,17 +190,18 @@ class AllReduceTraining(Training):
     def epoch(self):
         self.net.train()
         stats = np.zeros(3)  # loss, computation time, communication time
+        reducedStats = np.zeros(3)
         for i, data in enumerate(self.trainloader, 0):
             startComputation = time.time()
             # get inputs and zero parameter gradients
-            # TODO: get subset of batch relevant for this node
             inputs, labels = data
             self.optimizer.zero_grad()
 
-            # forward + backward + optimize
-            outputs = self.net(inputs)
-            loss = self.criterion(outputs, labels)
-            loss.backward()  # compute the gradients wrt to loss
+            if len(labels) > 0:  # skip for empty batches (can happen for last batch)
+                # forward + backward + optimize
+                outputs = self.net(inputs)
+                loss = self.criterion(outputs, labels)
+                loss.backward()  # compute the gradients wrt to loss
 
             # --- naive communication
             startCommunication = time.time()
@@ -210,8 +213,9 @@ class AllReduceTraining(Training):
             endCommunication = time.time()
             # --- actual naive communication
 
-            self.optimizer.step()  # use the gradients to update the model
-            endComputation = time.time()
+            if len(labels) > 0:  # skip for empty batches (can happen for last batch)
+                self.optimizer.step()  # use the gradients to update the model
+                endComputation = time.time()
 
             # --- statistics
             stats[0] += loss.item()
@@ -223,8 +227,8 @@ class AllReduceTraining(Training):
                 self.epoch_progressbar.update(i + 1)
 
         # --- statistics
-        comm.Reduce(MPI.IN_PLACE, stats, op=MPI.SUM, root=0)
+        comm.Reduce(stats, reducedStats, op=MPI.SUM, root=0)
         if self.is_root():
-            self.addMetadata("trainingLoss", stats[0] / self.batch_count)
-            self.addMetadata("computationTime", stats[1] / self.batch_count)
-            self.addMetadata("communicationTime", stats[2] / self.batch_count)
+            self.addMetadata("trainingLoss", reducedStats[0] / self.batch_count)
+            self.addMetadata("computationTime", reducedStats[1] / self.batch_count)
+            self.addMetadata("communicationTime", reducedStats[2] / self.batch_count)
