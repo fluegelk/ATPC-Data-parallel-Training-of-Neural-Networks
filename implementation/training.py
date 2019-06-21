@@ -197,11 +197,10 @@ class AllReduceTraining(Training):
             inputs, labels = data
             self.optimizer.zero_grad()
 
-            if len(labels) > 0:  # skip for empty batches (can happen for last batch)
-                # forward + backward + optimize
-                outputs = self.net(inputs)
-                loss = self.criterion(outputs, labels)
-                loss.backward()  # compute the gradients wrt to loss
+            # forward + backward + optimize
+            outputs = self.net(inputs)
+            loss = self.criterion(outputs, labels)
+            loss.backward()  # compute the gradients wrt to loss
 
             # --- naive communication
             startCommunication = time.time()
@@ -213,9 +212,8 @@ class AllReduceTraining(Training):
             endCommunication = time.time()
             # --- actual naive communication
 
-            if len(labels) > 0:  # skip for empty batches (can happen for last batch)
-                self.optimizer.step()  # use the gradients to update the model
-                endComputation = time.time()
+            self.optimizer.step()  # use the gradients to update the model
+            endComputation = time.time()
 
             # --- statistics
             stats[0] += loss.item()

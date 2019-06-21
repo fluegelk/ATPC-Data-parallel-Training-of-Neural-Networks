@@ -47,11 +47,11 @@ def createNet(model, in_channels=3, num_classes=10):
 def createDataLoaders(dlType, path, batch_size, dataset=DataSet.CIFAR10):
     if dlType is DataLoader.SequentialHDF5:
         trainLoader = h5.HDF5DataLoader(path, batch_size, train=True)
-        testLoader = h5.HDF5DataLoader(path, batch_size, train=False)
+        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False)
         return trainLoader, testLoader, testLoader.classes
     elif dlType is DataLoader.ParallelHDF5:
         trainLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=True)
-        testLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=False)
+        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False)
         return trainLoader, testLoader, testLoader.classes
     elif dlType is DataLoader.Torch:
         if dataset is DataSet.CIFAR10:

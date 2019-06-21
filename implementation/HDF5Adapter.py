@@ -47,23 +47,33 @@ def convertCIFAR10ToHDF5(root, path, download=True):
 class HDF5DataLoader(object):
     """docstring for HDF5DataLoader"""
 
-    def __init__(self, path, batch_size, train):
+    def __init__(self, path, batch_size, train, shuffle=True):
         self.h5file = h5py.File(path, mode='r')  # open file
 
         self.train = train
         self.group = "train" if train else "test"
 
-        self.labels = self.h5file[self.group + "/labels"]
-        self.images = self.h5file[self.group + "/images"]
-        self.classes = self.labels.attrs['classes']
+        labels_ref = self.h5file[self.group + "/labels"]
+        images_ref = self.h5file[self.group + "/images"]
+        self.classes = labels_ref.attrs['classes']
+
+        self.labels = labels_ref[:]
+        self.images = images_ref[:]
 
         self.sample_count = len(self.labels)
         self.set_batch_size(batch_size)
         self.currentBatch = 0
+        self.shuffle = shuffle
+
+    def shuffle_data(self):
+        rng_state = np.random.get_state()  # store random state
+        np.random.shuffle(self.labels)
+        np.random.set_state(rng_state)  # restore random state to ensure equal shuffling for both arrays
+        np.random.shuffle(self.images)
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
-        self.batch_count = math.ceil(self.sample_count / self.batch_size)
+        self.batch_count = math.floor(self.sample_count / self.batch_size)
 
     def _batch_start_index(self, batch_index):
         if batch_index >= self.batch_count:
@@ -71,9 +81,12 @@ class HDF5DataLoader(object):
         else:
             return batch_index * self.batch_size
 
+    def _batch_end_index(self, batch_index):
+        return self._batch_start_index(batch_index + 1)
+
     def get_batch(self, batch_index):
         start_index = self._batch_start_index(batch_index)
-        end_index = self._batch_start_index(batch_index + 1)
+        end_index = self._batch_end_index(batch_index)
         images = torch.from_numpy(self.images[start_index:end_index])
         labels = torch.from_numpy(self.labels[start_index:end_index])
         return [images, labels]
@@ -89,6 +102,8 @@ class HDF5DataLoader(object):
             batch = self.__getitem__(self.currentBatch)
             self.currentBatch += 1
             return batch
+        if self.shuffle:
+            self.shuffle_data()
         raise StopIteration()
 
     def __iter__(self):
@@ -100,34 +115,39 @@ class HDF5DataLoader(object):
 class ParallelHDF5DataLoader(HDF5DataLoader):
     """docstring for ParallelHDF5DataLoader"""
 
-    def __init__(self, path, batch_size, train, comm=MPI.COMM_WORLD):
+    def __init__(self, path, batch_size, train, shuffle=True, comm=MPI.COMM_WORLD):
         self.comm = comm
         self.node_count = 1 if comm == None else comm.Get_size()
+        super().__init__(path, batch_size, train, shuffle)
 
-        super().__init__(path, batch_size, train)
-
-        # if comm != None:  # open file in parallel mode TODO necessary?
-        #     self.h5file = h5py.File(path, mode='r', driver='mpio', comm=self.comm)
+        node_start_index = comm.Get_rank() * self.sample_count_per_node
+        node_end_index = (comm.Get_rank() + 1) * self.sample_count_per_node
+        self.images = self.images[node_start_index:node_end_index]
+        self.labels = self.labels[node_start_index:node_end_index]
 
     def set_batch_size(self, batch_size):
         assert (batch_size % self.node_count == 0), "Batch size must be divisible by MPI node count!"
-        super().set_batch_size(batch_size)
+        self.batch_size = batch_size
         self.batch_size_per_node = math.ceil(self.batch_size / self.node_count)
 
-    def _batch_subset_start_index(self, batch_index, subset_index):
-        if batch_index >= self.batch_count:
-            return self.sample_count
-        elif subset_index >= self.node_count:
-            return self._batch_subset_start_index(batch_index + 1, 0)
-        else:
-            return batch_index * self.batch_size + subset_index * self.batch_size_per_node
+        self.sample_count_per_node = math.floor(self.sample_count / self.node_count)
+        self.batch_count = math.floor(self.sample_count_per_node / self.batch_size)
 
-    def get_batch_subset(self, batch_index, subset_index):
-        start_index = self._batch_subset_start_index(batch_index, subset_index)
-        end_index = self._batch_subset_start_index(batch_index, subset_index + 1)
+    def _mini_batch_start_index(self, batch_index):
+        if batch_index >= self.batch_count:
+            return self.sample_count_per_node
+        else:
+            return batch_index * self.batch_size_per_node
+
+    def _mini_batch_end_index(self, batch_index):
+        return self._mini_batch_start_index(batch_index + 1)
+
+    def get_mini_batch(self, batch_index):
+        start_index = self._mini_batch_start_index(batch_index)
+        end_index = self._mini_batch_end_index(batch_index)
         images = torch.from_numpy(self.images[start_index:end_index])
         labels = torch.from_numpy(self.labels[start_index:end_index])
         return [images, labels]
 
     def __getitem__(self, index):
-        return self.get_batch_subset(index, self.comm.Get_rank())
+        return self.get_mini_batch(index)
