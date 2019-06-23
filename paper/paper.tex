@@ -1,0 +1,121 @@
+\documentclass[conference,compsoc,a4paper]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+
+\ifCLASSOPTIONcompsoc
+  % IEEE Computer Society needs nocompress option
+  % requires cite.sty v4.0 or later (November 2003)
+  \usepackage[nocompress]{cite}
+\else
+  % normal IEEE
+  \usepackage{cite}
+\fi
+
+
+% correct bad hyphenation here
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+
+\begin{document}
+
+\title{Data-parallel Training of Neural Networks}
+
+
+% author names and affiliations
+% use a multiple column layout for up to three different
+% affiliations
+\author{\IEEEauthorblockN{Katharina Flügel}
+\IEEEauthorblockA{TODO?}}
+
+
+% make the title area
+\maketitle
+
+% General rule: no math, special symbols or citations in the abstract
+\begin{abstract}
+TODO Abstract
+\end{abstract}
+
+\section{Introduction} % (fold)
+\label{sec:introduction}
+% Motivation
+% Hypthesis and overview over results
+% Organisation of this paper
+
+% section introduction (end)
+
+\section{Preliminaries} % (fold)
+\label{sec:preliminaries}
+% short intro to neural networks:
+% - short motivation
+% - short description of the training (forward, backward)
+% - FC vs. Conv-Layers
+
+
+% section preliminaries (end)
+
+\section{Related Work} % (fold)
+\label{sec:related_work}
+
+% section related_work (end)
+
+\section{Parallelizing Neural Networks} % (fold)
+\label{sec:parallelizing_neural_networks}
+
+\subsection{Model Parallelism} % (fold)
+\label{sub:model_parallelism}
+% definition/how does it work
+% pro/contra (compared to data-parallelism)
+
+% subsection model_parallelism (end)
+
+\subsection{Data Parallelism} % (fold)
+\label{sub:data_parallelism}
+% definition/how does it work in general
+% different approaches: synchronous/asynchronous etc.
+% pro/contra (compared to model-parallelism)
+
+% subsection data_parallelism (end)
+
+\subsection{Hybrid Approaches} % (fold)
+\label{sub:hybrid_approaches}
+% definition/how does it work
+% motivation, pro/contra to just one parallelism technique
+
+% subsection hybrid_approaches (end)
+
+% section parallelizing_neural_networks (end)
+
+
+% for implementation: why did I choose synchronous data parallelism with all-reduce? what's the advantage for parallel programming
+
+\section{Implementation} % (fold)
+\label{sec:implementation}
+% used tools and libraries (incl. version number)
+% execution environment/hardware
+% interesting/relevant implementation details
+
+% section implementation (end)
+
+\section{Experimental Results} % (fold)
+\label{sec:experimental_results}
+% illustrate results with plots etc.
+% describe and interpret results
+
+% section experimental_results (end)
+
+\section{Conclusion} % (fold)
+\label{sec:conclusion}
+% summarize contributions, reference to introduction/abstract
+% summarize central results and implications
+% revisit section key points
+% Benefits and shortcomings of approach and results
+
+% section conclusion (end)
+
+
+% \begin{thebibliography}{1}
+% % TODO
+% \end{thebibliography}
+
+\end{document}
