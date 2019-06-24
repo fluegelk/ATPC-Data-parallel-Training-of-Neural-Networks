@@ -206,9 +206,16 @@ class AllReduceTraining(Training):
             startCommunication = time.time()
             # average gradients, reduce each gradient separately
             for param in self.net.parameters():
-                gradientBuffer = convertPyTorchTensorToMPIBuffer(param.grad)
+                is_cuda = param.grad.is_cuda
+                device = param.grad.device
+                gradient = param.grad.cpu()
+
+                gradientBuffer = convertPyTorchTensorToMPIBuffer(gradient)
                 comm.Allreduce(MPI.IN_PLACE, gradientBuffer, op=MPI.SUM)
-                param.grad = param.grad / comm.Get_size()
+                gradient = gradient / comm.Get_size()
+
+                if is_cuda:
+                    param.grad = gradient.cuda(device)
             endCommunication = time.time()
             # --- actual naive communication
 
