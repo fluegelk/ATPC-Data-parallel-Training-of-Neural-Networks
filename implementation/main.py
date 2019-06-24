@@ -93,19 +93,32 @@ def setRandomSeeds(seed=0):
     np.random.seed(seed)  # set numpy seed
 
 
+def printDevice(net):
+    param = next(net.parameters())
+    if param.is_cuda:
+        print("Rank {}: CUDA {}".format(comm.Get_rank(), param.get_device))
+    else:
+        print("Rank {}: CPU".format(comm.Get_rank()))
+
+
 def main():
     setRandomSeeds()
+    torch.set_num_threads(1)
+
     # Parameters
     datasetType = DataSet.MNIST
-    dataLoaderType = DataLoader.SequentialHDF5
     modelType = Model.PyTorchTutorialNet
+
+    dataLoaderType = DataLoader.SequentialHDF5
     trainingType = Training.Sequential
 
-    max_epochs = 0
+    max_epochs = 200
     max_epochs_without_improvement = 10
     learning_rate = 0.001
     momentum = 0.9
-    batch_size = 64
+
+    mini_batch_size_per_node = 32
+    batch_size = mini_batch_size_per_node * comm.Get_size()
 
     dataset_path = '../datasets/'
     in_channels = 3 if datasetType is DataSet.CIFAR10 else 1
@@ -132,6 +145,7 @@ def main():
 
     # Training
     net = createNet(modelType, in_channels, num_classes)
+    printDevice(net)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
 
