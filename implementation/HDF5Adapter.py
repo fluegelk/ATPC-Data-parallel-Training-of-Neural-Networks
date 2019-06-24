@@ -47,29 +47,39 @@ def convertCIFAR10ToHDF5(root, path, download=True):
 class HDF5DataLoader(object):
     """docstring for HDF5DataLoader"""
 
-    def __init__(self, path, batch_size, train, shuffle=True):
+    def __init__(self, path, batch_size, train, shuffle=True, device=torch.device('cpu')):
+        self.device = device
         self.h5file = h5py.File(path, mode='r')  # open file
 
         self.train = train
         self.group = "train" if train else "test"
 
-        labels_ref = self.h5file[self.group + "/labels"]
-        images_ref = self.h5file[self.group + "/images"]
-        self.classes = labels_ref.attrs['classes']
+        self.labels_ref = self.h5file[self.group + "/labels"]
+        self.images_ref = self.h5file[self.group + "/images"]
+        self.classes = self.labels_ref.attrs['classes']
 
-        self.labels = labels_ref[:]
-        self.images = images_ref[:]
-
-        self.sample_count = len(self.labels)
+        self.sample_count = len(self.labels_ref)
         self.set_batch_size(batch_size)
         self.currentBatch = 0
         self.shuffle = shuffle
+
+        self._load_data()
+        self._to_tensor()
+
+    def _load_data(self):
+        self.labels = self.labels_ref[:]
+        self.images = self.images_ref[:]
+
+    def _to_tensor(self):
+        self.images_tensor = torch.from_numpy(self.images).to(self.device)
+        self.labels_tensor = torch.from_numpy(self.labels).to(self.device)
 
     def shuffle_data(self):
         rng_state = np.random.get_state()  # store random state
         np.random.shuffle(self.labels)
         np.random.set_state(rng_state)  # restore random state to ensure equal shuffling for both arrays
         np.random.shuffle(self.images)
+        self._to_tensor()
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
@@ -87,8 +97,8 @@ class HDF5DataLoader(object):
     def get_batch(self, batch_index):
         start_index = self._batch_start_index(batch_index)
         end_index = self._batch_end_index(batch_index)
-        images = torch.from_numpy(self.images[start_index:end_index])
-        labels = torch.from_numpy(self.labels[start_index:end_index])
+        images = self.images_tensor[start_index:end_index]
+        labels = self.labels_tensor[start_index:end_index]
         return [images, labels]
 
     def __getitem__(self, index):
@@ -115,15 +125,16 @@ class HDF5DataLoader(object):
 class ParallelHDF5DataLoader(HDF5DataLoader):
     """docstring for ParallelHDF5DataLoader"""
 
-    def __init__(self, path, batch_size, train, shuffle=True, comm=MPI.COMM_WORLD):
+    def __init__(self, path, batch_size, train, shuffle=True, device=torch.device('cpu'), comm=MPI.COMM_WORLD):
         self.comm = comm
         self.node_count = 1 if comm == None else comm.Get_size()
-        super().__init__(path, batch_size, train, shuffle)
+        super().__init__(path, batch_size, train, shuffle, device)
 
-        node_start_index = comm.Get_rank() * self.sample_count_per_node
-        node_end_index = (comm.Get_rank() + 1) * self.sample_count_per_node
-        self.images = self.images[node_start_index:node_end_index]
-        self.labels = self.labels[node_start_index:node_end_index]
+    def _load_data(self):
+        node_start_index = self.comm.Get_rank() * self.sample_count_per_node
+        node_end_index = (self.comm.Get_rank() + 1) * self.sample_count_per_node
+        self.images = self.images_ref[node_start_index:node_end_index]
+        self.labels = self.labels_ref[node_start_index:node_end_index]
 
     def set_batch_size(self, batch_size):
         assert (batch_size % self.node_count == 0), "Batch size must be divisible by MPI node count!"
@@ -145,8 +156,8 @@ class ParallelHDF5DataLoader(HDF5DataLoader):
     def get_mini_batch(self, batch_index):
         start_index = self._mini_batch_start_index(batch_index)
         end_index = self._mini_batch_end_index(batch_index)
-        images = torch.from_numpy(self.images[start_index:end_index])
-        labels = torch.from_numpy(self.labels[start_index:end_index])
+        images = self.images_tensor[start_index:end_index]
+        labels = self.labels_tensor[start_index:end_index]
         return [images, labels]
 
     def __getitem__(self, index):

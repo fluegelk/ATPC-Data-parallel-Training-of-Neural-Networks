@@ -44,14 +44,14 @@ def createNet(model, in_channels=3, num_classes=10):
     print("Error: invalid model type")
 
 
-def createDataLoaders(dlType, path, batch_size, dataset=DataSet.CIFAR10):
+def createDataLoaders(dlType, path, batch_size, device, dataset=DataSet.CIFAR10):
     if dlType is DataLoader.SequentialHDF5:
-        trainLoader = h5.HDF5DataLoader(path, batch_size, train=True)
-        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False)
+        trainLoader = h5.HDF5DataLoader(path, batch_size, train=True, device=device)
+        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False, device=device)
         return trainLoader, testLoader, testLoader.classes
     elif dlType is DataLoader.ParallelHDF5:
-        trainLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=True)
-        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False)
+        trainLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=True, device=device)
+        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False, device=device)
         return trainLoader, testLoader, testLoader.classes
     elif dlType is DataLoader.Torch:
         if dataset is DataSet.CIFAR10:
@@ -93,14 +93,6 @@ def setRandomSeeds(seed=0):
     np.random.seed(seed)  # set numpy seed
 
 
-def printDevice(net):
-    param = next(net.parameters())
-    if param.is_cuda:
-        print("Rank {}: CUDA {}".format(comm.Get_rank(), param.get_device))
-    else:
-        print("Rank {}: CPU".format(comm.Get_rank()))
-
-
 def main():
     setRandomSeeds()
     torch.set_num_threads(1)
@@ -139,13 +131,21 @@ def main():
         "date": now}
     metadata = "\n# " + str(config)
 
+    # Assign each process a device
+    device = torch.device('cpu')  # default: cpu device
+    # if rank < GPU count use GPU with id 'rank'
+    if comm.Get_rank() < torch.cuda.device_count():
+        device = torch.device('cuda', comm.Get_rank())
+
     # Load Data
     path = dataset_path if dataLoaderType is DataLoader.Torch else (dataset_path + datasetType.name + ".hdf5")
-    trainLoader, testLoader, classes = createDataLoaders(dataLoaderType, path, batch_size, dataset=datasetType)
+    trainLoader, testLoader, classes = createDataLoaders(dataLoaderType, path, batch_size, device, dataset=datasetType)
+
+    # Create net and move to correct device
+    net = createNet(modelType, in_channels, num_classes)
+    net.to(device)
 
     # Training
-    net = createNet(modelType, in_channels, num_classes)
-    printDevice(net)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
 
