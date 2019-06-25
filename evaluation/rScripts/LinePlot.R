@@ -47,14 +47,14 @@ loadData <- function(name, SGD) {
     summaryData <<- rbind(summaryData, summary)
 }
 
-linePlot <- function(data, x_axis, y_axis, group, x_label, y_label, group_label) {
+linePlot <- function(data, x_axis, y_axis, group, x_label, y_label, group_label, title) {
     plot <- ggplot(data, aes_string(x=x_axis, y=y_axis, colour=group, group=group)) +
         theme_classic() +
         expand_limits(y = 0) +
         geom_line() +
         geom_point() +
         scale_colour_manual(values=col_vec) +
-        labs(x=x_label, y=y_label, color=group_label, shape=group_label) +
+        labs(title=title, x=x_label, y=y_label, color=group_label, shape=group_label) +
         theme(plot.title = element_text(size=15, margin=margin(t=10, b=10)), legend.key=element_blank()) +
         guides(colour = guide_legend(nrow = 2))
 
@@ -77,29 +77,35 @@ data <- epochData
 
 ### -------- Actual plots --------
 
-errorByEpoch <- linePlot(data, "epoch", "validationError", group, "Epoch", "Validation Error", group_label)
+title = "Validation Error per Epoch"
+errorByEpoch <- linePlot(data, "epoch", "validationError", group, "Epoch", "Validation Error", group_label, title)
 errorByEpoch <- errorByEpoch + scale_y_continuous(labels = scales::percent)
 savePlot(errorByEpoch, "errorByEpoch")
 
-errorByTime <- linePlot(data, "summedTotalTime", "validationError", group, "Training Time [s]", "Validation Error", group_label)
+title = "Validation Error by Training Time"
+errorByTime <- linePlot(data, "summedTotalTime", "validationError", group, "Training Time [s]", "Validation Error", group_label, title)
 errorByTime <- errorByTime + scale_y_continuous(labels = scales::percent)
 savePlot(errorByTime, "errorByTime")
 
 
-validationLossByEpoch <- linePlot(data, "epoch", "validationLoss", group, "Epoch", "Validation Loss", group_label)
+title = "Validation Loss per Epoch"
+validationLossByEpoch <- linePlot(data, "epoch", "validationLoss", group, "Epoch", "Validation Loss", group_label, title)
 savePlot(validationLossByEpoch, "validationLossByEpoch")
 
-validationLossByTime <- linePlot(data, "summedTotalTime", "validationLoss", group, "Training Time [s]", "Validation Loss", group_label)
+title = "Validation Loss by Training Time"
+validationLossByTime <- linePlot(data, "summedTotalTime", "validationLoss", group, "Training Time [s]", "Validation Loss", group_label, title)
 savePlot(validationLossByTime, "validationLossByTime")
 
-
-trainingLossByEpoch <- linePlot(data, "epoch", "trainingLoss", group, "Epoch", "Training Loss", group_label)
+title = "Training Loss per Epoch"
+trainingLossByEpoch <- linePlot(data, "epoch", "trainingLoss", group, "Epoch", "Training Loss", group_label, title)
 savePlot(trainingLossByEpoch, "trainingLossByEpoch")
 
-trainingLossByTime <- linePlot(data, "summedTotalTime", "trainingLoss", group, "Training Time [s]", "Training Loss", group_label)
+title = "Training Loss by Training Time"
+trainingLossByTime <- linePlot(data, "summedTotalTime", "trainingLoss", group, "Training Time [s]", "Training Loss", group_label, title)
 savePlot(trainingLossByTime, "trainingLossByTime")
 
 
-timePerEpoch <- linePlot(data, "epoch", "totalTime", group, "Epoch", "Training Time [s]", group_label)
+title = "Training Time per Epoch"
+timePerEpoch <- linePlot(data, "epoch", "totalTime", group, "Epoch", "Training Time [s]", group_label, title)
 savePlot(timePerEpoch, "timePerEpoch")
 
