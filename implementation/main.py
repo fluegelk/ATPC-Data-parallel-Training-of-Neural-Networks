@@ -131,6 +131,9 @@ def main():
         "date": now}
     metadata = "\n# " + str(config)
 
+    if trainingType == Training.Sequential and comm.Get_rank() != 0:
+        return
+
     # Assign each process a device
     device = torch.device('cpu')  # default: cpu device
     # if rank < GPU count use GPU with id 'rank'

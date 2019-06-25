@@ -56,7 +56,7 @@ class Training(ABC):
                      "communicationTime": 3, "validationError": 4, "validationLoss": 5, "trainingLoss": 6}
 
     def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf,
-                 max_epochs_without_improvement=10):
+                 max_epochs_without_improvement=10, comm=MPI.COMM_WORLD):
         super(Training, self).__init__()
         self.net = net
         self.criterion = criterion
@@ -75,7 +75,8 @@ class Training(ABC):
             '=', '[', ']'), ' ', progressbar.Percentage()])
 
         self.batch_size = trainloader.batch_size
-        self.node_count = comm.Get_size()
+        self.comm = comm
+        self.node_count = 1 if comm == None else comm.Get_size()
 
         self.epochData = np.zeros((0, 7))
 
@@ -119,6 +120,7 @@ class Training(ABC):
         if self.is_root():
             end = time.time()
             self.epoch_progressbar.finish()
+            self.epoch_progressbar.finished = False
 
             totalTime = end - start
             error = self.validationError()
@@ -138,7 +140,8 @@ class Training(ABC):
             msg = '\nEpoch {}\t: Running time {:.2f} s\t Error: {:.1f}%\t Validation Loss: {:.2f}'
             print(msg.format(self.current_epoch, totalTime, error * 100, loss))
 
-        self.epochsSinceLastImprovement = comm.bcast(self.epochsSinceLastImprovement, root=0)
+        if self.comm != None:
+            self.epochsSinceLastImprovement = self.comm.bcast(self.epochsSinceLastImprovement, root=0)
         self.current_epoch += 1
 
     def train(self):
@@ -146,7 +149,8 @@ class Training(ABC):
         # loop over the training dataset until the stopCriterion is met
         while not self.stopCriterion():
             self.epochHelper()
-        comm.Barrier()
+        if self.comm != None:
+            self.comm.Barrier()
         end = time.time()
 
         if self.is_root():
@@ -161,6 +165,11 @@ class Training(ABC):
 
 class SequentialTraining(Training):
     """docstring for SequentialTraining"""
+
+    def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf,
+                 max_epochs_without_improvement=10):
+        super(SequentialTraining, self).__init__(net, criterion, optimizer, trainloader,
+                                                 testloader, max_epochs, max_epochs_without_improvement, None)
 
     def epoch(self):
         self.net.train()
@@ -185,7 +194,7 @@ class AllReduceTraining(Training):
     """docstring for AllReduceTraining"""
 
     def is_root(self):
-        return comm.Get_rank() == 0
+        return self.comm.Get_rank() == 0
 
     def epoch(self):
         self.net.train()
@@ -211,8 +220,8 @@ class AllReduceTraining(Training):
                 gradient = param.grad.cpu()
 
                 gradientBuffer = convertPyTorchTensorToMPIBuffer(gradient)
-                comm.Allreduce(MPI.IN_PLACE, gradientBuffer, op=MPI.SUM)
-                gradient = gradient / comm.Get_size()
+                self.comm.Allreduce(MPI.IN_PLACE, gradientBuffer, op=MPI.SUM)
+                gradient = gradient / self.node_count
 
                 if is_cuda:
                     param.grad = gradient.cuda(device)
@@ -232,7 +241,7 @@ class AllReduceTraining(Training):
                 self.epoch_progressbar.update(i + 1)
 
         # --- statistics
-        comm.Reduce(stats, reducedStats, op=MPI.SUM, root=0)
+        self.comm.Reduce(stats, reducedStats, op=MPI.SUM, root=0)
         if self.is_root():
             self.addMetadata("trainingLoss", reducedStats[0] / self.batch_count)
             self.addMetadata("computationTime", reducedStats[1] / self.batch_count)
