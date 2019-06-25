@@ -69,7 +69,7 @@ savePlot <- function(plot, name) {
 
 ### -------- Configuration --------
 
-loadData("results__2019-06-15--12-05-43", "Sequential")
+loadData("results__2019-06-25--12-39", "Sequential")
 
 group <- "SGD"
 group_label <- "SGD"
@@ -96,6 +96,7 @@ title = "Validation Loss by Training Time"
 validationLossByTime <- linePlot(data, "summedTotalTime", "validationLoss", group, "Training Time [s]", "Validation Loss", group_label, title)
 savePlot(validationLossByTime, "validationLossByTime")
 
+data <- subset(data, epoch!=0)
 title = "Training Loss per Epoch"
 trainingLossByEpoch <- linePlot(data, "epoch", "trainingLoss", group, "Epoch", "Training Loss", group_label, title)
 savePlot(trainingLossByEpoch, "trainingLossByEpoch")

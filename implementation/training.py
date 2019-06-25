@@ -78,7 +78,7 @@ class Training(ABC):
         self.comm = comm
         self.node_count = 1 if comm == None else comm.Get_size()
 
-        self.epochData = np.zeros((0, 7))
+        self.epochData = np.zeros((1, 7))
 
     def saveResults(self, path, comment=''):
         np.savetxt(path + "__epochs", self.epochData, delimiter='\t',
@@ -86,10 +86,12 @@ class Training(ABC):
         np.savetxt(path + "__summary", self.summaryData, delimiter='\t', comments='',
                    header=self.header_summaryData, footer=comment)
 
-    def addMetadata(self, key, value):
+    def addMetadata(self, key, value, epoch=None):
+        if epoch is None:
+            epoch = self.current_epoch + 1
         if key in self.epochDataKeys:
             index = self.epochDataKeys[key]
-            self.epochData[self.current_epoch][index] = value
+            self.epochData[epoch][index] = value
 
     def validationError(self):
         return 1 - testing.computeAccuracy(self.net, self.testloader)
@@ -135,9 +137,9 @@ class Training(ABC):
             self.addMetadata("totalTime", totalTime)
             self.addMetadata("validationError", error)
             self.addMetadata("validationLoss", loss)
-            self.addMetadata("epoch", self.current_epoch)
+            self.addMetadata("epoch", self.current_epoch + 1)
 
-            msg = '\nEpoch {}\t: Running time {:.2f} s\t Error: {:.1f}%\t Validation Loss: {:.2f}'
+            msg = '\nEpochs {}\t: Running time {:.2f} s\t Error: {:.1f}%\t Validation Loss: {:.2f}'
             print(msg.format(self.current_epoch, totalTime, error * 100, loss))
 
         if self.comm != None:
@@ -145,6 +147,11 @@ class Training(ABC):
         self.current_epoch += 1
 
     def train(self):
+        if self.is_root():
+            self.addMetadata("validationError", self.validationError(), 0)
+            self.addMetadata("validationLoss", self.validationLoss(), 0)
+            self.addMetadata("epoch", 0, 0)
+
         start = time.time()
         # loop over the training dataset until the stopCriterion is met
         while not self.stopCriterion():
