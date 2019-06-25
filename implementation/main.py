@@ -21,6 +21,7 @@ class Model(Enum):
     PyTorchTutorialNet = 1
     LeNet5 = 2
     LeNet5Updated = 3
+    AlexNet = 4
 
 
 class DataLoader(Enum):
@@ -41,6 +42,8 @@ def createNet(model, in_channels=3, num_classes=10):
         return models.LeNet5(in_channels, num_classes, updated=False)
     elif model is Model.LeNet5Updated:
         return models.LeNet5(in_channels, num_classes, updated=True)
+    elif model is Model.AlexNet:
+        return models.AlexNet(in_channels, num_classes)
     print("Error: invalid model type")
 
 
