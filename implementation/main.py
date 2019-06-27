@@ -117,7 +117,7 @@ def main(argv):
     torch.set_num_threads(1)
 
     dataset_path = '../datasets/'
-    now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
+    now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
 
     # Default Parameters
     datasetType = DataSet.MNIST
@@ -220,7 +220,7 @@ Options:
                      max_epochs_without_improvement, learning_rate, momentum, batch_size)
 
     if comm.Get_rank() == 0:
-        trainObj.saveResults("outputs/results__" + now, comment=metadata)
+        trainObj.saveResults("outputs/results__" + now, comment=metadata, config=config)
 
 
 if __name__ == "__main__":

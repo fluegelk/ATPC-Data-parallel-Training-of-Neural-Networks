@@ -51,7 +51,7 @@ class Training(ABC):
     """docstring for Training"""
 
     header_epochData = "epoch\ttotalTime\tcomputationTime\tcommunicationTime\tvalidationError\tvalidationLoss\ttrainingLoss"
-    header_summaryData = "epochCount\ttotalTime\tvalidationError\tvalidationLoss\tbatchSize\tnodeCount"
+    header_summaryData = "epochCount\ttotalTime\tvalidationError\tvalidationLoss\tnodeCount"
     epochDataKeys = {"epoch": 0, "totalTime": 1, "computationTime": 2,
                      "communicationTime": 3, "validationError": 4, "validationLoss": 5, "trainingLoss": 6}
 
@@ -80,11 +80,24 @@ class Training(ABC):
 
         self.epochData = np.zeros((1, 7))
 
-    def saveResults(self, path, comment=''):
+    def saveResults(self, path, comment='', config=None):
+        # save epoch data
         np.savetxt(path + "__epochs", self.epochData, delimiter='\t',
                    comments='', header=self.header_epochData, footer=comment)
-        np.savetxt(path + "__summary", self.summaryData, delimiter='\t', comments='',
-                   header=self.header_summaryData, footer=comment)
+
+        # save summary data + config if given
+        header = self.header_summaryData
+        data = '\t'.join(map(str, self.summaryData))
+        if config is not None:
+            for opt, value in config.items():
+                header = header + '\t' + opt
+                data = data + '\t' + str(value)
+
+        file = open(path + "__summary", "w")
+        file.write(header + "\n")
+        file.write(data + "\n")
+        file.write(comment)
+        file.close()
 
     def addMetadata(self, key, value, epoch=None):
         if epoch is None:
@@ -161,13 +174,12 @@ class Training(ABC):
         end = time.time()
 
         if self.is_root():
-            self.epochData
             self.totalTime = end - start
             self.totalEpochs = self.current_epoch
             self.finalValidationError = self.validationError()
             self.finalValidationLoss = self.validationLoss()
-            self.summaryData = np.array([[self.totalEpochs, self.totalTime, self.finalValidationError,
-                                          self.finalValidationLoss, self.batch_size, self.node_count]])
+            self.summaryData = np.array([self.totalEpochs, self.totalTime, self.finalValidationError,
+                                         self.finalValidationLoss, self.node_count])
 
 
 class SequentialTraining(Training):
