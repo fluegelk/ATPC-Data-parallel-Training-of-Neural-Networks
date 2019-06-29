@@ -1,6 +1,33 @@
 \documentclass[conference,compsoc,a4paper]{IEEEtran}
 \usepackage[utf8]{inputenc}
-\usepackage{hyperref}
+
+
+% configs from ba
+\usepackage[english]{babel}
+\usepackage[raiselinks=true,
+			bookmarks=true,
+			bookmarksopenlevel=1,
+			bookmarksopen=true,
+			bookmarksnumbered=true,
+			hyperindex=true,
+			plainpages=false,
+			pdfpagelabels=true,
+			pdfborder={0 0 0.5},
+			colorlinks=false,
+			linkbordercolor={0 0.61 0.50},
+			citebordercolor={0 0.61 0.50}]{hyperref}
+\addto\extrasenglish{%
+  \def\chapterautorefname{Chapter}%
+  \def\chapterrefname{Chapter}%
+  \def\sectionautorefname{Section}%
+  \def\sectionrefname{Section}%
+  \def\subsectionautorefname{Section}%
+  \def\subsectionrefname{Section}%
+  \def\subsubsectionautorefname{Section}%
+  \def\subsubsectionrefname{Section}%
+  \def\paragraphautorefname{Paragraph}%
+  \def\paragraphrefname{Paragraph}%
+}
 
 \ifCLASSOPTIONcompsoc
   % IEEE Computer Society needs nocompress option
