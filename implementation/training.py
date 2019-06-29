@@ -70,8 +70,8 @@ class Training(ABC):
         self.epochsSinceLastImprovement = 0
         self.max_epochs_without_improvement = max_epochs_without_improvement
 
-        self.batch_count = len(trainloader)
-        self.epoch_progressbar = progressbar.ProgressBar(maxval=self.batch_count, widgets=[progressbar.Bar(
+        self.batch_count = len(trainloader) / self.node_count
+        self.epoch_progressbar = progressbar.ProgressBar(maxval=len(trainloader), widgets=[progressbar.Bar(
             '=', '[', ']'), ' ', progressbar.Percentage()])
 
         self.batch_size = trainloader.batch_size
@@ -96,8 +96,9 @@ class Training(ABC):
         file = open(path + "__summary", "w")
         file.write(header + "\n")
         file.write(data + "\n")
-        file.write(comment)
+        file.write(comment + "\n")
         file.close()
+        print("Training results saved at " + path)
 
     def addMetadata(self, key, value, epoch=None):
         if epoch is None:
@@ -152,8 +153,8 @@ class Training(ABC):
             self.addMetadata("validationLoss", loss)
             self.addMetadata("epoch", self.current_epoch + 1)
 
-            msg = '\nEpochs {}\t: Running time {:.2f} s\t Error: {:.1f}%\t Validation Loss: {:.2f}'
-            print(msg.format(self.current_epoch, totalTime, error * 100, loss))
+            msg = '\nEpochs {}\t: Running time {:.2f} s\t Error: {:.2f}%\t Validation Loss: {:.3f}\t Epochs since last improvement: {}'
+            print(msg.format(self.current_epoch, totalTime, error * 100, loss, self.epochsSinceLastImprovement))
 
         if self.comm != None:
             self.epochsSinceLastImprovement = self.comm.bcast(self.epochsSinceLastImprovement, root=0)
@@ -262,6 +263,6 @@ class AllReduceTraining(Training):
         # --- statistics
         self.comm.Reduce(stats, reducedStats, op=MPI.SUM, root=0)
         if self.is_root():
-            self.addMetadata("trainingLoss", reducedStats[0] / self.batch_count)
-            self.addMetadata("computationTime", reducedStats[1] / self.batch_count)
-            self.addMetadata("communicationTime", reducedStats[2] / self.batch_count)
+            self.addMetadata("trainingLoss", reducedStats[0] / self.batch_count)  # average loss per batch
+            self.addMetadata("computationTime", reducedStats[1] / self.node_count)  # average time per node
+            self.addMetadata("communicationTime", reducedStats[2] / self.node_count)

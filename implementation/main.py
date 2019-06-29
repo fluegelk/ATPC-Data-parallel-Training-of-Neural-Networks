@@ -131,10 +131,12 @@ def main(argv):
     momentum = 0.9
     batch_size = 64
 
+    keepResults = True
+
     # Define command line options and help text
     short_opts = "hd:m:l:t:e:b:"
-    long_opts = ["help", "data", "model", "net", "dl", "dataloader", "training",
-                 "epochs", "earlystopping", "learningrate", "momentum", "bs", "batchsize"]
+    long_opts = ["help", "data=", "model=", "net=", "dl=", "dataloader=", "training=", "epochs=",
+                 "earlystopping=", "learningrate=", "momentum=", "bs=", "batchsize=", "discard-results"]
 
     help_text = """Train a neural network on an image classification problem (MNIST or CIFAR10) and collect
 running times, errors and losses over time. Results are stored in '../outputs/'.
@@ -164,7 +166,9 @@ Options:
 
     --learningrate          Learning rate [default:0.001]
 
-    --momentum              Training momentum [default:0.9]"""
+    --momentum              Training momentum [default:0.9]
+
+    --discard-results       Do not store the training results in output/"""
 
     # Parse command line arguments
     try:
@@ -194,6 +198,11 @@ Options:
             learning_rate = float(arg)
         elif opt in ("--momentum"):
             momentum = float(arg)
+        elif opt in ("--discard-results"):
+            keepResults = False
+
+    if trainingType == Training.Sequential and comm.Get_rank() != 0:
+        return
 
     config = {
         "dataset": datasetType.name,
@@ -208,18 +217,16 @@ Options:
         "date": now}
     metadata = "\n# " + str(config)
 
-    print('Configuration:')
-    for opt, value in config.items():
-        print("  {:<31}  {}".format(opt + ':', value))
-    print('')
-
-    if trainingType == Training.Sequential and comm.Get_rank() != 0:
-        return
+    if comm.Get_rank() == 0:
+        print('Configuration:')
+        for opt, value in config.items():
+            print("  {:<31}  {}".format(opt + ':', value))
+        print('')
 
     trainObj = train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, max_epochs,
                      max_epochs_without_improvement, learning_rate, momentum, batch_size)
 
-    if comm.Get_rank() == 0:
+    if keepResults and comm.Get_rank() == 0:
         trainObj.saveResults("outputs/results__" + now, comment=metadata, config=config)
 
 
