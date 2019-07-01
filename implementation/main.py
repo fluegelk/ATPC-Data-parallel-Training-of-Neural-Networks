@@ -67,18 +67,18 @@ def createDataLoaders(dlType, path, batch_size, device, dataset=DataSet.CIFAR10)
 
 
 def createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs=math.inf,
-                   max_epochs_without_improvement=10):
+                   max_epochs_without_improvement=10, printProgress=False):
     if trainingType is Training.Sequential:
         return training.SequentialTraining(net, criterion, optimizer, trainLoader,
-                                           testLoader, max_epochs, max_epochs_without_improvement)
+                                           testLoader, max_epochs, max_epochs_without_improvement, printProgress)
     elif trainingType is Training.AllReduce:
         return training.AllReduceTraining(net, criterion, optimizer, trainLoader,
-                                          testLoader, max_epochs, max_epochs_without_improvement)
+                                          testLoader, max_epochs, max_epochs_without_improvement, printProgress)
     print("Error: invalid training type")
 
 
 def train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, max_epochs,
-          max_epochs_without_improvement, learning_rate, momentum, batch_size):
+          max_epochs_without_improvement, learning_rate, momentum, batch_size, printProgress=False):
     # Assign each process a device
     device = torch.device('cpu')  # default: cpu device
     # if rank < GPU count use GPU with id 'rank'
@@ -101,7 +101,7 @@ def train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, ma
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
 
     trainObj = createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs,
-                              max_epochs_without_improvement)
+                              max_epochs_without_improvement, printProgress)
     trainObj.train()
     return trainObj
 
@@ -132,14 +132,17 @@ def main(argv):
     batch_size = 64
 
     keepResults = True
+    printProgress = False
 
     # Define command line options and help text
     short_opts = "hd:m:l:t:e:b:"
     long_opts = ["help", "data=", "model=", "net=", "dl=", "dataloader=", "training=", "epochs=",
-                 "earlystopping=", "learningrate=", "momentum=", "bs=", "batchsize=", "discard-results"]
+                 "earlystopping=", "learningrate=", "momentum=", "bs=", "batchsize=", "discard-results", "print-progress"]
 
     help_text = """Train a neural network on an image classification problem (MNIST or CIFAR10) and collect
-running times, errors and losses over time. Results are stored in '../outputs/'.
+running times, errors and losses over time. Results are stored in 'outputs/'.
+Expects the selected dataset as HDF5 file in '../datasets/'. Use createDatasets.py to create those input files.
+
 
 Options:
     -h --help               Show this screen.
@@ -168,7 +171,9 @@ Options:
 
     --momentum              Training momentum [default:0.9]
 
-    --discard-results       Do not store the training results in output/"""
+    --discard-results       Do not store the training results in output/
+
+    --print-progress        Print a progress bar and a short summary for each training epoch"""
 
     # Parse command line arguments
     try:
@@ -200,9 +205,13 @@ Options:
             momentum = float(arg)
         elif opt in ("--discard-results"):
             keepResults = False
+        elif opt in ("--print-progress"):
+            printProgress = True
 
     if trainingType == Training.Sequential and comm.Get_rank() != 0:
         return
+
+    node_count = 1 if trainingType == Training.Sequential else comm.Get_size()
 
     config = {
         "dataset": datasetType.name,
@@ -214,6 +223,7 @@ Options:
         "learning_rate": learning_rate,
         "momentum": momentum,
         "batch_size": batch_size,
+        "node_count": node_count,
         "date": now}
     metadata = "\n# " + str(config)
 
@@ -224,7 +234,7 @@ Options:
         print('')
 
     trainObj = train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, max_epochs,
-                     max_epochs_without_improvement, learning_rate, momentum, batch_size)
+                     max_epochs_without_improvement, learning_rate, momentum, batch_size, printProgress)
 
     if keepResults and comm.Get_rank() == 0:
         trainObj.saveResults("outputs/results__" + now, comment=metadata, config=config)

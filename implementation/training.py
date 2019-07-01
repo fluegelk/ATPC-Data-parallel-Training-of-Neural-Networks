@@ -56,7 +56,7 @@ class Training(ABC):
                      "communicationTime": 3, "validationError": 4, "validationLoss": 5, "trainingLoss": 6}
 
     def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf,
-                 max_epochs_without_improvement=10, comm=MPI.COMM_WORLD):
+                 max_epochs_without_improvement=10, printProgress=False, comm=MPI.COMM_WORLD):
         super(Training, self).__init__()
         self.net = net
         self.criterion = criterion
@@ -70,15 +70,18 @@ class Training(ABC):
         self.epochsSinceLastImprovement = 0
         self.max_epochs_without_improvement = max_epochs_without_improvement
 
-        self.batch_count = len(trainloader) / self.node_count
-        self.epoch_progressbar = progressbar.ProgressBar(maxval=len(trainloader), widgets=[progressbar.Bar(
-            '=', '[', ']'), ' ', progressbar.Percentage()])
-
         self.batch_size = trainloader.batch_size
         self.comm = comm
         self.node_count = 1 if comm == None else comm.Get_size()
 
+        self.batch_count = len(trainloader) / self.node_count
         self.epochData = np.zeros((1, 7))
+
+        self.printProgress = printProgress
+        if self.printProgress:
+            widgets = [progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()]
+            self.epoch_progressbar = progressbar.ProgressBar(maxval=len(trainloader),
+                                                             widgets=widgets)
 
     def saveResults(self, path, comment='', config=None):
         # save epoch data
@@ -128,15 +131,17 @@ class Training(ABC):
     def epochHelper(self):
         if self.is_root():
             self.epochData = np.append(self.epochData, np.zeros((1, 7)), axis=0)
-            self.epoch_progressbar.start()
+            if self.printProgress:
+                self.epoch_progressbar.start()
             start = time.time()
 
         self.epoch()
 
         if self.is_root():
             end = time.time()
-            self.epoch_progressbar.finish()
-            self.epoch_progressbar.finished = False
+            if self.printProgress:
+                self.epoch_progressbar.finish()
+                self.epoch_progressbar.finished = False
 
             totalTime = end - start
             error = self.validationError()
@@ -153,8 +158,9 @@ class Training(ABC):
             self.addMetadata("validationLoss", loss)
             self.addMetadata("epoch", self.current_epoch + 1)
 
-            msg = '\nEpochs {}\t: Running time {:.2f} s\t Error: {:.2f}%\t Validation Loss: {:.3f}\t Epochs since last improvement: {}'
-            print(msg.format(self.current_epoch, totalTime, error * 100, loss, self.epochsSinceLastImprovement))
+            if self.printProgress:
+                msg = '\nEpochs {}\t: Running time {:.2f} s\t Error: {:.2f}%\t Validation Loss: {:.3f}\t Epochs since last improvement: {}'
+                print(msg.format(self.current_epoch, totalTime, error * 100, loss, self.epochsSinceLastImprovement))
 
         if self.comm != None:
             self.epochsSinceLastImprovement = self.comm.bcast(self.epochsSinceLastImprovement, root=0)
@@ -187,9 +193,9 @@ class SequentialTraining(Training):
     """docstring for SequentialTraining"""
 
     def __init__(self, net, criterion, optimizer, trainloader, testloader, max_epochs=math.inf,
-                 max_epochs_without_improvement=10):
+                 max_epochs_without_improvement=10, printProgress=False):
         super(SequentialTraining, self).__init__(net, criterion, optimizer, trainloader,
-                                                 testloader, max_epochs, max_epochs_without_improvement, None)
+                                                 testloader, max_epochs, max_epochs_without_improvement, printProgress, None)
 
     def epoch(self):
         self.net.train()
@@ -206,7 +212,8 @@ class SequentialTraining(Training):
             self.optimizer.step()  # use the gradients to update the model
 
             summedLoss += loss.item()
-            self.epoch_progressbar.update(i + 1)
+            if self.printProgress:
+                self.epoch_progressbar.update(i + 1)
         self.addMetadata("trainingLoss", summedLoss / self.batch_count)
 
 
@@ -257,7 +264,7 @@ class AllReduceTraining(Training):
             stats[1] += endComputation - startComputation - commTime
             stats[2] += commTime
 
-            if self.is_root():
+            if self.is_root() and self.printProgress:
                 self.epoch_progressbar.update(i + 1)
 
         # --- statistics
