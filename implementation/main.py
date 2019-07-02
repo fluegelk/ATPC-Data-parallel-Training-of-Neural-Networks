@@ -8,6 +8,7 @@ import math
 from mpi4py import MPI
 import sys
 import getopt
+import uuid
 
 comm = MPI.COMM_WORLD
 
@@ -240,7 +241,8 @@ Options:
                      max_epochs_without_improvement, learning_rate, momentum, batch_size, printProgress)
 
     if keepResults and comm.Get_rank() == 0:
-        trainObj.saveResults("outputs/results__" + now, comment=metadata, config=config)
+        unique_id = uuid.uuid1()
+        trainObj.saveResults("outputs/results__" + now + "__" + str(unique_id), comment=metadata, config=config)
 
 
 if __name__ == "__main__":

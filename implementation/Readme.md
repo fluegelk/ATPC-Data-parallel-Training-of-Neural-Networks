@@ -21,10 +21,10 @@ Configuration options can be displayed with
 ```
 python3 main.py -h
 ```
-By default, the experimental results (running times, losses, error rates,...) will be saved in two files using the program start time as name:
+By default, the experimental results (running times, losses, error rates,...) will be saved in two files using the program start time and a python unique UUID as name:
 ```
-outputs/results__YYYY-mm-dd--HH-MM-SS__epochs
-outputs/results__YYYY-mm-dd--HH-MM-SS__summary
+outputs/results__YYYY-mm-dd--HH-MM-SS__UUID__epochs
+outputs/results__YYYY-mm-dd--HH-MM-SS__UUID__summary
 ```
 
 ### Parallelism
