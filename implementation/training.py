@@ -5,6 +5,7 @@ import numpy as np
 import progressbar
 import time
 import torch
+import os.path
 
 import testing
 
@@ -85,23 +86,36 @@ class Training(ABC):
 
     def saveResults(self, path, comment='', config=None):
         # save epoch data
-        np.savetxt(path + "__epochs", self.epochData, delimiter='\t',
-                   comments='', header=self.header_epochData, footer=comment)
+        success = True
+        if os.path.exists(path + "__epochs"):
+            success = False
+            print("Error: cannot save epoch data at {}, file exists.".format(path + "__epochs"))
+        else:
+            np.savetxt(path + "__epochs", self.epochData, delimiter='\t',
+                       comments='', header=self.header_epochData, footer=comment)
 
         # save summary data + config if given
-        header = self.header_summaryData
-        data = '\t'.join(map(str, self.summaryData))
-        if config is not None:
-            for opt, value in config.items():
-                header = header + '\t' + opt
-                data = data + '\t' + str(value)
+        if os.path.exists(path + "__summary"):
+            success = False
+            print("Error: cannot save summary data at {}, file exists.".format(path + "__summary"))
+        else:
+            header = self.header_summaryData
+            data = '\t'.join(map(str, self.summaryData))
+            if config is not None:
+                for opt, value in config.items():
+                    header = header + '\t' + opt
+                    data = data + '\t' + str(value)
 
-        file = open(path + "__summary", "w")
-        file.write(header + "\n")
-        file.write(data + "\n")
-        file.write(comment + "\n")
-        file.close()
-        print("Training results saved at " + path)
+            file = open(path + "__summary", "w")
+            file.write(header + "\n")
+            file.write(data + "\n")
+            file.write(comment + "\n")
+            file.close()
+
+        if success:
+            print("Training results successfully saved at " + path)
+        else:
+            print("Error while trying to save Training results at " + path)
 
     def addMetadata(self, key, value, epoch=None):
         if epoch is None:
