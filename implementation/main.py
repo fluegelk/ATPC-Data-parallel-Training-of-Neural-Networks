@@ -24,6 +24,7 @@ class Model(Enum):
     LeNet5 = 2
     LeNet5Updated = 3
     AlexNet = 4
+    AlexNetPool = 5
 
 
 class DataLoader(Enum):
@@ -45,7 +46,9 @@ def createNet(model, in_channels=3, num_classes=10):
     elif model is Model.LeNet5Updated:
         return models.LeNet5(in_channels, num_classes, updated=True)
     elif model is Model.AlexNet:
-        return models.AlexNet(in_channels, num_classes)
+        return models.AlexNet(in_channels, num_classes, noFeaturePooling=True)
+    elif model is Model.AlexNetPool:
+        return models.AlexNet(in_channels, num_classes, noFeaturePooling=False)
     print("Error: invalid model type")
 
 
@@ -151,7 +154,7 @@ Options:
                             values: MNIST, CIFAR10 [default:MNIST]
 
     -m --model --net        Select model to train, values:
-                            PyTorchTutorialNet, LeNet5, LeNet5Updated, AlexNet
+                            PyTorchTutorialNet, LeNet5, LeNet5Updated, AlexNet, AlexNetPool
                             [default:LeNet5Updated]
 
     -l --dl --dataloader    Select the data loader, values:
