@@ -5,6 +5,7 @@ Install required packages
 ```
 pip3 install -r requirements.txt
 ```
+Additionally, it might be necessary to install PyTorch manually for the correct CUDA version, see https://pytorch.org/get-started/locally/.
 
 Create datasets (download from torchvision to '../datasets' if necessary and convert to HDF5 file)
 ```
