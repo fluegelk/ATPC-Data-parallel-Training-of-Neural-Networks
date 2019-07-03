@@ -27,15 +27,7 @@ outputs/results__YYYY-mm-dd--HH-MM-SS__UUID__epochs
 outputs/results__YYYY-mm-dd--HH-MM-SS__UUID__summary
 ```
 
-### Parallelism
 Run with p processes using
 ```
 mpiexec -n p python3 main.py
 ```
-
-The first i processes (i <= # visable CUDA devices) are automatically assigned to a GPU, the remaining processes remain on the CPU.
-Set no visiable CUDA devices, e.g. with
-```
-export CUDA_VISIBLE_DEVICES=
-```
-to use only CPUs.

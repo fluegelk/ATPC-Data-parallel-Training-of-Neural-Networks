@@ -39,6 +39,11 @@ class Training(Enum):
     AllReduce = 2
 
 
+class Device(Enum):
+    CPU = 1
+    GPU = 2
+
+
 def createNet(model, in_channels=3, num_classes=10):
     if model is Model.PyTorchTutorialNet:
         return models.PyTorchTutorialNet(in_channels, num_classes)
@@ -82,13 +87,7 @@ def createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoa
 
 
 def train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, max_epochs,
-          max_epochs_without_improvement, learning_rate, momentum, batch_size, printProgress=False):
-    # Assign each process a device
-    device = torch.device('cpu')  # default: cpu device
-    # if rank < GPU count use GPU with id 'rank'
-    if comm.Get_rank() < torch.cuda.device_count():
-        device = torch.device('cuda', comm.Get_rank())
-
+          max_epochs_without_improvement, learning_rate, momentum, batch_size, device, printProgress=False):
     # Load Data
     path = dataset_path if dataLoaderType is DataLoader.Torch else (dataset_path + datasetType.name + ".hdf5")
     trainLoader, testLoader, classes = createDataLoaders(dataLoaderType, path,
@@ -128,6 +127,7 @@ def main(argv):
     modelType = Model.LeNet5Updated
     dataLoaderType = DataLoader.ParallelHDF5
     trainingType = Training.AllReduce
+    deviceType = Device.GPU
 
     max_epochs = 200
     max_epochs_without_improvement = 10
@@ -141,7 +141,8 @@ def main(argv):
     # Define command line options and help text
     short_opts = "hd:m:l:t:e:b:"
     long_opts = ["help", "data=", "model=", "net=", "dl=", "dataloader=", "training=", "epochs=",
-                 "earlystopping=", "learningrate=", "momentum=", "bs=", "batchsize=", "discard-results", "print-progress"]
+                 "earlystopping=", "learningrate=", "momentum=", "bs=", "batchsize=", "discard-results",
+                 "print-progress", "device="]
 
     help_text = """Train a neural network on an image classification problem (MNIST or CIFAR10) and collect
 running times, errors and losses over time. Results are stored in 'outputs/'.
@@ -167,6 +168,8 @@ Options:
     -b --bs --batchsize     Total batch size (over all processes) [default:64]
 
     -e --epochs             Maximum number of training epochs [default:200]
+
+    --device                Switch between CPU and GPU, values: CPU, GPU [default: GPU]
 
     --earlystopping         Maximum number of epochs without improvement
                             before the training is stopped [default:10]
@@ -201,6 +204,8 @@ Options:
             batch_size = int(arg)
         elif opt in ("-e", "--epochs"):
             max_epochs = int(arg)
+        elif opt in ("--device"):
+            deviceType = Device[arg]
         elif opt in ("--earlystopping"):
             max_epochs_without_improvement = int(arg)
         elif opt in ("--learningrate"):
@@ -228,6 +233,7 @@ Options:
         "momentum": momentum,
         "batch_size": batch_size,
         "node_count": node_count,
+        "device": deviceType.name,
         "date": now}
     metadata = "\n# " + str(config)
 
@@ -237,8 +243,21 @@ Options:
             print("  {:<31}  {}".format(opt + ':', value))
         print('')
 
-    trainObj = train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, max_epochs,
-                     max_epochs_without_improvement, learning_rate, momentum, batch_size, printProgress)
+    # Assign each process a device
+    if deviceType == Device.GPU and node_count > torch.cuda.device_count():
+        if comm.Get_rank() == 0:
+            msg = "Error: selected GPU as device but number of processes ({}) " \
+                + "is greater than number of visable GPUs ({})"
+            print(msg.format(node_count, torch.cuda.device_count()))
+        return
+
+    cpu_device = torch.device('cpu')
+    gpu_device = torch.device('cuda', comm.Get_rank())
+    device = cpu_device if deviceType == Device.CPU else gpu_device
+
+    trainObj = train(datasetType, dataset_path, modelType, dataLoaderType, trainingType,
+                     max_epochs, max_epochs_without_improvement, learning_rate, momentum,
+                     batch_size, device, printProgress)
 
     if keepResults and comm.Get_rank() == 0:
         unique_id = uuid.uuid1()
