@@ -120,7 +120,6 @@ def main(argv):
     torch.set_num_threads(1)
 
     dataset_path = '../datasets/'
-    now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
 
     # Default Parameters
     datasetType = DataSet.MNIST
@@ -233,8 +232,7 @@ Options:
         "momentum": momentum,
         "batch_size": batch_size,
         "node_count": node_count,
-        "device": deviceType.name,
-        "date": now}
+        "device": deviceType.name}
     metadata = "\n# " + str(config)
 
     if comm.Get_rank() == 0:
@@ -260,7 +258,9 @@ Options:
                      batch_size, device, printProgress)
 
     if keepResults and comm.Get_rank() == 0:
-        unique_id = uuid.uuid1()
+        now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+        config["date"] = now
+        unique_id = uuid.uuid4()
         trainObj.saveResults("outputs/results__" + now + "__" + str(unique_id), comment=metadata, config=config)
 
 
