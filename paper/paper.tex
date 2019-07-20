@@ -184,9 +184,32 @@ In this paper, we focus on the image classification problem, where given an imag
 
 \section{Implementation} % (fold)
 \label{sec:implementation}
-% used tools and libraries (incl. version number)
-% execution environment/hardware
-% interesting/relevant implementation details
+We implement and evaluate a synchronous, data-parallel training using MPI-All-Reduce to communicate and aggregate the gradients between different processes.
+% TODO: reasons why this technique implemented and not e.g. model parallelism or asynch approaches.
+
+We test our implementation with two CNNs:
+\emph{LeNet5} \cite{lecun1998gradient} consists of three convolutional layers, two maximum pooling layers, and two fully-connected layers.
+\emph{TorchNet}\footnote{\url{https://pytorch.org/tutorials/beginner/blitz/neural_networks_tutorial.html\#define-the-network}} consists of two convolutional layers, two maximum pooling layers, and three fully-connected layers.
+
+These models are trained on the image classification datasets \emph{MNIST} \cite{lecun1998gradient} and \emph{CIFAR10} \cite{krizhevsky2009CIFAR10}.
+MNIST contains 60,000 training images and 10,000 test images of handwritten digits.
+CIFAR10 consists of 50,000 training images and 10,000 test images for ten different classes such as cat, airplane, or bird.
+
+The training is implemented in Python v3.6.6 with PyTorch v1.1.0, Torchvision v0.3.0 and Numpy v1.16.4.
+On the GPU, CUDA v10.0 is used for computation.
+For communication, OpenMPI v3.1 with the python wrapper MPI4Py v3.0.2.
+The datasets were converted to HDF5 format using HDF5 v1.10 (on ForHLR II) and v1.8.12 (on LSDF) and are read via H5Py v2.9.0.
+
+We evaluated our implementation two different machines:
+The \emph{LSDF} server consists of two Intel Xeon E5-2630 v3 processors running at 2.40 – 3.20~GHz with eight cores each and two threads per core.
+Additionally, LSDF contains four NVIDIA Tesla K80 GPU, each offering 4992 NVIDIA CUDA cores and 24~GB of GDDR5 memory.
+%
+We, furthermore, used Intel Xeon E5-2660 v3 processors on the HPC-system \emph{ForHLR II}. % TODO dünne oder fette knoten?
+Each processor runs at 2.60 – 3.30~GHz and consists of ten cores per processor and two threads per core
+%
+Both machines use Red Hat Enterprise Linux 7 as operating system.
+
+% TODO: interesting/relevant implementation details?
 
 % section implementation (end)
 
