@@ -56,6 +56,7 @@ def createNet(model, in_channels=3, num_classes=10):
     elif model is Model.AlexNetPool:
         return models.AlexNet(in_channels, num_classes, noFeaturePooling=False)
     print("Error: invalid model type")
+    sys.exit(1)
 
 
 def createDataLoaders(dlType, path, batch_size, device, dataset=DataSet.CIFAR10):
@@ -73,6 +74,7 @@ def createDataLoaders(dlType, path, batch_size, device, dataset=DataSet.CIFAR10)
         elif dataset is DataSet.MNIST:
             return loadTorchMNIST(path, True, batch_size)
     print("Error: invalid data loader type")
+    sys.exit(1)
 
 
 def createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs=math.inf,
@@ -84,6 +86,7 @@ def createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoa
         return training.AllReduceTraining(net, criterion, optimizer, trainLoader,
                                           testLoader, max_epochs, max_epochs_without_improvement, printProgress)
     print("Error: invalid training type")
+    sys.exit(1)
 
 
 def train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, max_epochs,
@@ -243,11 +246,10 @@ Options:
 
     # Assign each process a device
     if deviceType == Device.GPU and node_count > torch.cuda.device_count():
-        if comm.Get_rank() == 0:
-            msg = "Error: selected GPU as device but number of processes ({}) " \
-                + "is greater than number of visable GPUs ({})"
-            print(msg.format(node_count, torch.cuda.device_count()))
-        return
+        msg = "Error: selected GPU as device but number of processes ({}) " \
+            + "is greater than number of visible GPUs ({}). [Rank {}]"
+        print(msg.format(node_count, torch.cuda.device_count(), comm.Get_rank()))
+        sys.exit(1)
 
     cpu_device = torch.device('cpu')
     gpu_device = torch.device('cuda', comm.Get_rank())
