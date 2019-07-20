@@ -73,11 +73,77 @@ TODO Abstract
 
 \section{Preliminaries} % (fold)
 \label{sec:preliminaries}
-% short intro to neural networks:
-% - short motivation
-% - short description of the training (forward, backward)
-% - FC vs. Conv-Layers
+%TODO: look at preliminaries in \cite{paine2013-GPU-async-SGD} and \cite{chilimbi2014-Project-Adam}
 
+% Deep Learning definition:
+% \begin{itemize}
+% 	\item use many layers
+% 	\item learning hierarchical features from the raw input data instead of using hand-crafted features \cite{chilimbi2014-Project-Adam}
+% \end{itemize}
+
+This sections gives a short introduction to machine learning using convolutional neural networks, defining all necessary concepts used in the remainder of this paper.
+More in-depth information can, for example, be found in \cite{goodfellow2016-DeepLearningBook}.
+
+Neural networks consist of multiple neurons.
+A neuron has some weighted connections, for example to previous neurons, with weights $w$ and a bias $b$.
+It receives some input $x$ via its connections and computes a weighted sum $w^Tx+b$ which is then passed to an \emph{activation function} $\phi(\cdot)$.
+Typical activation functions are $\tanh$, the logistic function, or more recently the rectified linear unit (ReLU).
+The output $\phi(w^Tx+b)$ of the neuron can then be passed as input to the next neuron.
+
+Multiple neurons can be organized into \emph{layers} where the output of each layer is passed as input to the next.
+The input data -- for example the pixel values of a training image -- is passed to the first layer.
+The network output is encoded in the last layer's output.
+%
+There are different types of layers depending on how the neurons are connected to the previous layer.
+In computer vision and image classification, the most important types of layers are fully-connected layers, convolutional layers, and pooling-layers.
+
+In \emph{fully-connected layers}, each neuron of the first layer is connected to each neuron in the second layer.
+These layers consist of many connections which result in numerous parameters.
+Fully-connected layers are typically used to determine the image class once the features have been extracted.
+
+\emph{Convolutional layers} are based on the convolutional filtering used in digital image processing, for example in the Gaussian blur filter TODO cite? or edge detection filters like Sobel or Prewitt TODO cite?.
+They use prior knowledge, for example the data hierarchy TODO cite, to reduce the number of parameters.
+Convolutional layers consist of a small filter -- usually between 3x3 and 7x7 pixels -- that is shifted over the image.
+At each pixel, the weighted sum of its surrounding pixels is computed and passed to the activation function.
+Instead of connecting individual neurons with weighted connections, the filter weights are therefore reused for each pixel.
+This reduces the number of parameters significantly, which in turn speeds up the training.
+Convolutional layers are often used together with pooling layers as features extractors TODO cite.
+
+\emph{Pooling layers} aggregate adjacent pixels to a single output pixel using either the sum, the average or the maximum of the pooled pixels.
+Similarly to convolutional layers, the pooling operation is shifted over the image and apply repeatedly the the different parts of the image.
+Pooling layers reduces the spatial size of the input image and generally improve the models robustness to noise and clutter in the input.
+TODO look at Y-L. Boureau, J. Ponce, Y. LeCun. A Theoretical Analysis of Feature Pooling in Visual Recognition. ICML 2010
+
+A \emph{loss function} is used to evaluate the accuracy by comparing the networks output to the actual, expected output.
+Different loss functions for different types of problems exist.
+For image classification, a typical loss function is the cross entropy loss.
+%
+In general, neural networks can be thought of as ``large parameterized function[s]'' \cite{paine2013-GPU-async-SGD} where all the weights and biases are model parameters that can be modified to improve the accuracy.
+When training a neural network, we aim to minimize the loss by adjusting its parameters.
+
+A widely used optimization strategy for training neural networks is \emph{stochastic gradient descent (SGD)}. % TODO cite?
+Gradient descent is an optimization algorithm to find local minima by adjusting the parameters in the opposite direction of the gradient.
+%
+To compute the gradient of a neural network, we typically use the \emph{backpropagation} algorithm.
+Backpropagation is based on the chain rule, a rule used to compute the derivative of function compositions.
+%
+Instead of computing the gradient over the entire training set at once, SGD partitions the shuffled training set into \emph{batches}.
+For each batch, we compute an averaged gradient using back-propagation and update the model parameters accordingly.
+%
+A \emph{training epoch} consists of processing each batch in the training set once.
+Usually, multiple epochs -- that is multiple passes through the training set -- are required to train a neural network to convergence \cite{chilimbi2014-Project-Adam}.
+
+There are many different hyper-parameters to tune the neural network and its training.
+In this paper, only the \emph{batch size}, that is the number of training instances per batch, is of importance.
+A larger batch size generally reduces the training time per epoch while increasing the number of epochs required to reach a certain accuracy.
+As we will see in \autoref{sec:parallelizing_neural_networks} and \ref{sec:experimental_results}, the batch size can also affect the scalability of some parallelization techniques.
+
+% TODO position?
+A dataset consists of two separate sets, one for training the network and one to test its accuracy an unseen inputs and to avoid overfitting.
+Each of these sets contains pairs of an input instance and the correct label.
+In this paper, we focus on the image classification problem, where given an image, the neural network shall correctly determine the class depicted in the image.
+
+% TODO additional? GPUs for neural networks and why they work well, short MPI introduction
 
 % section preliminaries (end)
 
