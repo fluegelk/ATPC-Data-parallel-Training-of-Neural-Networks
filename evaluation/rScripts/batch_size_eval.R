@@ -10,7 +10,7 @@ outpath <- "../batch_size_eval/"
 
 col_vec = c("red2","darkorange","dodgerblue2","black","chartreuse3", "magenta4", "turquoise", "grey45")
 col_gradient = c("darkorange", "red2", "deeppink", "magenta4", "dodgerblue2", "turquoise", "chartreuse3", "grey45", "black")
-col_bs <- c("512" = "darkorange", "256" = "red2", "128" = "deeppink", "64" = "magenta4", "32" = "dodgerblue2", "16" = "turquoise", "8" = "chartreuse3", "4" = "grey45")
+col_bs <- c("512" = "darkorange", "256" = "red2", "128" = "magenta4", "64" = "dodgerblue2", "32" = "turquoise", "16" = "chartreuse3", "8" = "grey45", "4" = "black")
 
 epochData <- data.frame(SGD=character(),
                  model=character(),
@@ -103,7 +103,7 @@ group_label <- "Batch Size"
 
 title = "Validation Error per Epoch"
 errorByEpoch <- linePlot(data, "epoch", "validationError", group, "Epoch", "Validation Error", group_label, title)
-errorByEpoch <- errorByEpoch + scale_y_continuous(labels = scales::percent)
+errorByEpoch <- errorByEpoch + scale_y_continuous(labels = scales::percent_format(accuracy = 1))
 errorByEpoch <- errorByEpoch + scale_x_continuous(breaks=c(0,2,4,6,8,10))
 savePlot(errorByEpoch, "errorByEpoch")
 
