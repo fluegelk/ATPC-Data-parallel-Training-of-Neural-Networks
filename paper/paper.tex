@@ -65,9 +65,67 @@ TODO Abstract
 
 \section{Introduction} % (fold)
 \label{sec:introduction}
+% Section Road Map:
 % Motivation
-% Hypthesis and overview over results
-% Organisation of this paper
+%   1. Neural networks and deep learning are important and have many applications.
+%   2. Training neural networks is time consuming due to evergrowing models (parameters) and datasets
+%      (number and size of inputs (e.g. images)), and there is reason to speed this up.
+%   3. Parallelizing and distributing the training is a/the solution to this.
+%
+% Contributions
+%   1. Comparision of multiple parallelism approaches for distributed deep learning
+%   2. Implementation of one such technique (synchronous SGD with all-reduce). Evaluation on image classicication datasets.
+%   3. Results: TODO: main findings
+%
+% Paper Road Map
+% 	1. Short road map containing the remaining sections
+
+%% Motivation
+Neural networks have become an essential factor in solving many practical challenges.
+There is a multitude of applications from computer vision, audio and speech processing, to processing text and natural language \cite{chen2016-Revisiting-distributed-synchronous-SGD,dean2012-Large-scale-distributed,yadan2013-Multi-GPU-Training}.
+More practical applications include machine translation \cite{sutskever2014sequence}, self-driving cars, and automatic driver assistance systems \cite{jin2016-How-to-scale}.
+%
+In this paper, we focus mostly on the convolutional neural networks (CNNs) used in computer vision.
+Typical tasks include image classification, character and object recognition, and object detection \cite{paine2013-GPU-async-SGD}.
+
+
+The recent advances in deep learning are facilitated by a significant increase in both model size and available training data, accompanied further by the increased computing power \cite{chen2016-Revisiting-distributed-synchronous-SGD,chilimbi2014-Project-Adam}.
+%
+While datasets used to be rather small contain tens of thousands of images \cite{lecun1998gradient,krizhevsky2009CIFAR10}, recent datasets like ImageNet \cite{imagenet_cvpr09} contain millions of images for thousands of classes.
+Moreover, the internal datasets of some companies are said to contain billions of images with hundreds of thousands of classes \cite{iandola2016-Firecaffe}.
+%
+To accommodate these massive datasets models with larger learning capacities are required \cite{krizhevsky2012-AlexNet}.
+For example, deep learning significantly increases the number of layers in a neural network, which in turn multiplies the number of model parameters.
+In general, larger models with more parameters can yield better performance than smaller networks \cite{coates2013-DL-COTS-HPC,dean2012-Large-scale-distributed,krizhevsky2012-AlexNet}.
+
+
+Increasing the number of training examples and model parameters can improve the resulting accuracy significantly \cite{dean2012-Large-scale-distributed}
+However, all those advances lead to substantially long training times of multiple days or even weeks \cite{jin2016-How-to-scale,chilimbi2014-Project-Adam}.
+This makes experiments difficult and time-consuming \cite{yadan2013-Multi-GPU-Training,jiang2018-FiLayer} and is often a bottleneck to developing new, high accuracy model architectures \cite{iandola2016-Firecaffe}.
+
+Consequently, parallelizing and distributing the training is necessary further to utilize all available computational power \cite{jiang2018-FiLayer,recht2011-Hogwild}.
+Additionally, their sheer size prevents some datasets and models from fitting into the memory of a single machine \cite{recht2011-Hogwild,dean2012-Large-scale-distributed}.
+This is especially prevalent when training on GPUs, as the available memory is much smaller than on CPUs \cite{dean2012-Large-scale-distributed}.
+Circumventing memory bottlenecks can thus be an additional advantage when using distributed training.
+% TODO: warum sind bisherige Ansätze (z.B. in PyTorch/Tensorflow) nicht gut genug?
+
+% Hypthesis and overview over results/contributions
+Different strategies for parallel and distributed training of neural networks have been developed.
+Most techniques apply model parallelism, data parallelism, or hybrid approaches combining both approaches.
+This paper discusses these different variants in detail, comparing their assets and drawbacks, and when to use which approach.
+Additionally, we implement data parallel training using synchronous communication with all-reduce.
+We test this training using convolutional neural networks on the well-known image classification problems MNIST and CIFAR10.
+TODO: short summary of results/conclusion % TODO: something about the results from section 6/7
+
+%% Organisation of this paper
+This seminar paper is organized as follows:
+The next section gives a short introduction to neural networks and their training.
+After that, \autoref{sec:related_work} gives an overview of previous and related work on parallelizing the training of neural networks.
+The different parallelization techniques are covered in detail in \autoref{sec:parallelizing_neural_networks}.
+We discuss both model and data parallelism as well as hybrid approaches.
+\autoref{sec:implementation} describes the implementation of data-parallel training using synchronous stochastic gradient descent (SGD).
+The results are illustrated in \autoref{sec:experimental_results}.
+Finally, \autoref{sec:conclusion} summarizes our contributions and results and gives an outlook on possible future work.
 
 % section introduction (end)
 
