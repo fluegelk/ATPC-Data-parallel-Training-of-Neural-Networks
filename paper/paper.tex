@@ -207,6 +207,54 @@ In this paper, we focus on the image classification problem, where given an imag
 
 \section{Related Work} % (fold)
 \label{sec:related_work}
+A general overview of different parallelization techniques in the time between 1995 and 2011 is presented by Upadhyaya \cite{upadhyaya2013parallel}.
+%
+% Single-Node parallelism for computer vision networks
+Single-node parallelization strategies include \emph{Hogwild} \cite{recht2011-Hogwild}, a shared memory implementation of SGD by Niu et al., which in contrast to previous approaches does not rely on locking.
+The authors argue that, since many neural networks are sparse, the chance of different processors overwriting each other's progress is so small that it does not affect the convergence of the network.
+%
+Jiang et al. \cite{jiang2018-FiLayer} introduce \emph{FiLayer}, a single-node parallelization that can be used in addition to model and data parallelism.
+Their inter-layer parallelization uses a pipeline-based processing of the different network layers, whereas their intra-layer approach parallelizes the computation in a single convolutional layer.
+
+% Distributed parallelism for computer vision networks
+An influential work on distributed training of neural networks is Google’s \emph{DistBelief} framework introduced by Dean et al. \cite{dean2012-Large-scale-distributed}.
+DistBelief uses model and data parallelism for large-scale distributed training of deep neural networks.
+They are able to train significantly larger models than before by utilizing tens of thousands of CPU cores.
+Their \emph{Downpour SGD} is based on an asynchronous approach to data-parallelism using a central parameter server.
+%
+Paine et al. \cite{paine2013-GPU-async-SGD} propose a variant of DistBelief's Downpour SGD using GPUs instead of CPUs.
+To reduce the overhead of GPU-CPU data-transfer, workers only communicated with the parameter server every n-th step instead of after each optimization step.
+
+Multiple other algorithms based on a data-parallel approach have been developed.
+%
+For example, \emph{Elastic averaging SGD}, developed by Zhang et al. \cite{zhang2015-Elastic-AvgSGD}, reduces the communication overhead between the workers and the server compared to the standard parameter server approach.
+It, furthermore, speeds up the convergence by enabling more exploration and allowing more divergence in the worker parameters.
+%
+Jin et al. \cite{jin2016-How-to-scale} introduce a new asynchronous, data parallel training algorithm called \emph{gossiping SGD}.
+They compare gossiping SGD to both synchronous SGD using All-Reduce and asynchronous, elastic averaging SGD \cite{zhang2015-Elastic-AvgSGD}.
+They conclude that asynchronous methods converge faster for large step sizes and up to 32 nodes, while synchronous SGD converges faster when using more nodes or smaller steps \cite{jin2016-How-to-scale}.
+%
+For synchronous SGD, Chen et al. \cite{chen2016-Revisiting-distributed-synchronous-SGD} develop an improved version which outperforms previous asynchronous approaches by mitigating the straggler effect with backup workers.
+%
+With \emph{FireCaffe}, Iandola et al. \cite{iandola2016-Firecaffe} present a multi-GPU implementation of data parallelism focused on reducing the communication overhead.
+They compare different communication algorithms and find that reduction trees outperform the parameter server approach regarding efficiency and scalability.
+Additionally, they note that a higher batch size can improve the scalability even further.
+
+Focusing on model parallelism, Coates et al. \cite{coates2013-DL-COTS-HPC} investigate training on Commodity Off-The-Shelf High-Performance Computing (COTS HPC) systems consisting of a cluster of GPUs.
+They provide several solutions to the challenges induced by this infrastructure, such as communications bottlenecks and the more complicated design necessary to arrange training on many GPUs.
+
+Both approaches are also frequently combined to hybrid techniques.
+For example, Krizhevsky \cite{krizhevsky2014-One-weird-trick} proposes to use data parallelism in the convolutional layers and model parallelism in the fully-connected layers of a single convolutional neural network.
+%
+Furthermore, Das et al. \cite{das2016-Distributed-deep-learning} provide an optimized implementation of single-node, synchronous SGD and extend this to a distributed, multi-node version using a hybrid approach of both model and data parallelism.
+Unlike many other implementations, they do not alter hyperparameters such as the minibatch size or learning rate.
+
+% Speech DNNs
+There have also been several attempts at parallelizing deep neural networks for speech processing.
+However, they generally scale significantly worse than the typical CNNs used in computer vision due to the higher amount of fully-connected layers \cite{dean2012-Large-scale-distributed,seide2014-Speech-DNNs}.
+Seide et al. \cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic} investigate parallelizing these types of networks using both model and data parallelism.
+They focus on adjusting the learning rate and minibatch size \cite{seide2014-Speech-DNNs} and reducing the amount of communicated data \cite{seide2014-1-bit-stochastic} to improve the scalability.
+Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can only be reached by fundamentally changing and parallelizing the underlying training algorithm instead of simply applying model or data parallelism \cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic}.
 
 % section related_work (end)
 
