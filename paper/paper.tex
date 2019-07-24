@@ -295,7 +295,7 @@ Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can 
 
 % for implementation: why did I choose synchronous data parallelism with all-reduce? what's the advantage for parallel programming
 
-\section{Implementation} % (fold)
+\section{Implementation and Methodology} % (fold)
 \label{sec:implementation}
 We implement and evaluate a synchronous, data-parallel training using MPI-All-Reduce to communicate and aggregate the gradients between different processes.
 % TODO: reasons why this technique implemented and not e.g. model parallelism or asynch approaches.
@@ -308,7 +308,20 @@ These models are trained on the image classification datasets \emph{MNIST} \cite
 MNIST contains 60,000 training images and 10,000 test images of handwritten digits.
 CIFAR10 consists of 50,000 training images and 10,000 test images for ten different classes such as cat, airplane, or bird.
 
-The training is implemented in Python v3.6.6 with PyTorch v1.1.0, Torchvision v0.3.0 and Numpy v1.16.4.
+We use a learning rate of $0.001$ and a Nesterov momentum of $0.9$ for all experiments.
+This is equal to the values used by Jin et al. in \cite{jin2016-How-to-scale}.
+In contrast to some other publications, e.g. \cite{jin2016-How-to-scale}, we do not adjust the learning rate during the training.
+%
+The training data is divided into batches with batch sizes between $16$ and $512$.
+When training in parallel, batches are divided equally amongst all processes.
+Thus, the mini-batch size per process equals the batch size divided by the number of processes.
+%
+Each process is assigned an equal share of the training data from which it picks its mini-batches.
+Between training epochs, the each process shuffles its subset of the training data.
+Training images are never exchanged between processes.
+It is important to note that this can reduce the variance when shuffling the data.
+
+The training is implemented in Python v3.6.6 with PyTorch v1.1.0, Torchvision v0.3.0, and Numpy v1.16.4.
 On the GPU, CUDA v10.0 is used for computation.
 For communication, OpenMPI v3.1 with the python wrapper MPI4Py v3.0.2.
 The datasets were converted to HDF5 format using HDF5 v1.10 (on ForHLR II) and v1.8.12 (on LSDF) and are read via H5Py v2.9.0.
@@ -318,7 +331,7 @@ The \emph{LSDF} server consists of two Intel Xeon E5-2630 v3 processors running 
 Additionally, LSDF contains four NVIDIA Tesla K80 GPU, each offering 4992 NVIDIA CUDA cores and 24~GB of GDDR5 memory.
 %
 We, furthermore, used Intel Xeon E5-2660 v3 processors on the HPC-system \emph{ForHLR II}. % TODO dünne oder fette knoten?
-Each processor runs at 2.60 – 3.30~GHz and consists of ten cores per processor and two threads per core
+Each processor runs at 2.60 – 3.30~GHz and consists of ten cores per processor and two threads per core.
 %
 Both machines use Red Hat Enterprise Linux 7 as operating system.
 
