@@ -60,7 +60,21 @@
 
 % General rule: no math, special symbols or citations in the abstract
 \begin{abstract}
-TODO Abstract
+With an increase in both model and data size, training neural networks is increasingly more time-consuming.
+Techniques to parallelize and distribute the training in order to reduce these training times are thus ever more important.
+This seminar paper surveys different strategies for both distribution and parallelization when training neural networks.
+Two essential principles to distinguish different parallelization approaches are model and data parallelism.
+While we describe the general concept of model parallelism, this paper focuses mostly on data parallelism.
+We illustrate multiple data-parallel algorithms, including both synchronous and asynchronous communication schemes.
+
+Furthermore, we implement synchronous SGD, a data-parallel training technique based on synchronous communication via MPI-AllReduce.
+We test this implementation by training LeNet5 on the image classification datasets MNIST and CIFAR10.
+Using four GPUs, we achieve speedups of up to X. % TODO set speedup
+With 16 CPUs on a shared-memory machine, we even reach speedups of Y. % TODO set speedup
+We can observe several hardware influences, especially on the GPU, including the general speedup of GPUs compared to the CPU, the communication overhead of GPU-CPU-communication, and possible effects of PCI-E piggybacking.
+Additionally, we evaluate the effects of the batch size on both sequential training and scalability.
+Our results conform to the notion that while larger batch sizes reduce the training time per epoch and increase the scalability, they reduce the convergence per epoch at the same time.
+
 \end{abstract}
 
 \section{Introduction} % (fold)
