@@ -298,31 +298,10 @@ Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can 
 
 % for implementation: why did I choose synchronous data parallelism with all-reduce? what's the advantage for parallel programming
 
-\section{Implementation and Methodology} % (fold)
+\section{Implementation} % (fold)
 \label{sec:implementation}
 We implement and evaluate a synchronous, data-parallel training using MPI-All-Reduce to communicate and aggregate the gradients between different processes.
 % TODO: reasons why this technique implemented and not e.g. model parallelism or asynch approaches.
-
-We test our implementation with two CNNs:
-\emph{LeNet5} \cite{lecun1998gradient} consists of three convolutional layers, two maximum pooling layers, and two fully-connected layers.
-\emph{TorchNet}\footnote{\url{https://pytorch.org/tutorials/beginner/blitz/neural_networks_tutorial.html\#define-the-network}} consists of two convolutional layers, two maximum pooling layers, and three fully-connected layers.
-
-These models are trained on the image classification datasets \emph{MNIST} \cite{lecun1998gradient} and \emph{CIFAR10} \cite{krizhevsky2009CIFAR10}.
-MNIST contains 60,000 training images and 10,000 test images of handwritten digits.
-CIFAR10 consists of 50,000 training images and 10,000 test images for ten different classes such as cat, airplane, or bird.
-
-We use a learning rate of $0.001$ and a Nesterov momentum of $0.9$ for all experiments.
-This is equal to the values used by Jin et al. in \cite{jin2016-How-to-scale}.
-In contrast to some other publications, e.g. \cite{jin2016-How-to-scale}, we do not adjust the learning rate during the training.
-%
-The training data is divided into batches with batch sizes between $16$ and $512$.
-When training in parallel, batches are divided equally amongst all processes.
-Thus, the mini-batch size per process equals the batch size divided by the number of processes.
-%
-Each process is assigned an equal share of the training data from which it picks its mini-batches.
-Between training epochs, the each process shuffles its subset of the training data.
-Training images are never exchanged between processes.
-It is important to note that this can reduce the variance when shuffling the data.
 
 The training is implemented in Python v3.6.6 with PyTorch v1.1.0, Torchvision v0.3.0, and Numpy v1.16.4.
 On the GPU, CUDA v10.0 is used for computation.
@@ -347,6 +326,43 @@ Both machines use Red Hat Enterprise Linux 7 as operating system.
 % illustrate results with plots etc.
 % describe and interpret results
 
+\subsection{Methodology} % (fold)
+\label{sub:methodology}
+
+We test our implementation with two CNNs:
+\emph{LeNet5} \cite{lecun1998gradient} consists of three convolutional layers, two maximum pooling layers, and two fully-connected layers.
+\emph{TorchNet}\footnote{\url{https://pytorch.org/tutorials/beginner/blitz/neural_networks_tutorial.html\#define-the-network}} consists of two convolutional layers, two maximum pooling layers, and three fully-connected layers.
+
+These models are trained on the image classification datasets \emph{MNIST} \cite{lecun1998gradient} and \emph{CIFAR10} \cite{krizhevsky2009CIFAR10}.
+MNIST contains 60,000 training images and 10,000 test images of handwritten digits.
+CIFAR10 consists of 50,000 training images and 10,000 test images for ten different classes such as cat, airplane, or bird.
+
+We use a learning rate of $0.001$ and a Nesterov momentum of $0.9$ for all experiments.
+This is equal to the values used by Jin et al. in \cite{jin2016-How-to-scale}.
+In contrast to some other publications, e.g. \cite{jin2016-How-to-scale}, we do not adjust the learning rate during the training.
+%
+The training data is divided into batches with batch sizes between $16$ and $512$.
+When training in parallel, batches are divided equally amongst all processes.
+Thus, the mini-batch size per process equals the batch size divided by the number of processes.
+%
+Each process is assigned an equal share of the training data from which it picks its mini-batches.
+Between training epochs, the each process shuffles its subset of the training data.
+Training images are never exchanged between processes.
+It is important to note that this can reduce the variance when shuffling the data.
+
+The model is trained for a maximum of $20$ (MNIST) or $100$ (CIFAR10) epochs.
+The training is stopped if either the maximum number of epochs is reached or if the validation loss could not be improved in the last ten epochs.
+
+After each training epoch, the validation loss is measured.
+To compare total training times and speedups, we consider all epochs until the validation loss drops below a certain threshold.
+We select a threshold of $0.5$ for MNIST and $1.5$ for CIFAR10.
+This threshold is determined by rounding up the maximum of the minimal validation loss for each training on that dataset.
+
+% subsection methodology (end)
+
+\subsection{Impact of the batch size} % (fold)
+\label{sub:impact_of_the_batch_size}
+
 \begin{figure}[h]
 \centering
 \includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-epochs--MNIST}
@@ -355,6 +371,11 @@ As expected, the smaller the batch size, the faster is the model's convergence.
 However, at the same time, a larger batch size speeds up the training time per epoch as can be seen in \autoref{fig:loss_by_time}.}
 \label{fig:loss_by_epoch}
 \end{figure}
+
+% subsection impact_of_the_batch_size (end)
+
+\subsection{Communication Time} % (fold)
+\label{sub:communication_time}
 
 \begin{figure}[h]
 \centering
@@ -385,6 +406,11 @@ Since communication is required after each batch, larger batches therefore resul
   \hrulefill
 \end{figure*}
 
+% subsection communication_time (end)
+
+\subsection{Speedup} % (fold)
+\label{sub:speedup}
+
 \begin{figure*}[!t]
   \normalsize
   \centering
@@ -413,10 +439,6 @@ Since communication is required after each batch, larger batches therefore resul
 
 % section conclusion (end)
 
-
-% \begin{thebibliography}{1}
-% % TODO
-% \end{thebibliography}
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,references}
 
