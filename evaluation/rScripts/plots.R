@@ -13,7 +13,8 @@ speedup_plot_helper <- function(data, maxThreads, title, color, color_label, fac
             facet +
             plot_theme() +
             scale_colour_manual(values=col_gradient) +
-            labs(title=title, x="p", y="Speedup", color=color_label)
+            labs(x="p", y="Speedup", color=color_label)
+    if (!is.null(title)) { plot <- plot + labs(title=title) }
     return(plot)
 }
 
@@ -58,8 +59,11 @@ aggregate_comp_comm_time <- function(data, id_vars, aggregation) {
     return(aggr_data)
 }
 
-comp_comm_time_plot <- function(data, title, group, group_label, facet=model_device_facet(scales="free")) {
-    labels <- c("communicationTime" = "Communication", "computationTime" = "Computation")
+comp_comm_time_plot <- function(data, title, group, group_label, facet=model_device_facet(scales="free"), shortLabels=FALSE) {
+    long_labels <- c("communicationTime" = "Communication", "computationTime" = "Computation")
+    short_labels <- c("communicationTime" = "Comm.", "computationTime" = "Comp.")
+    if(shortLabels) { labels <- short_labels }
+    else { labels <- long_labels }
     data["x"] <- data[group]
     if (!is.factor(data$x)) { data$x <- as.factor(data$x) }
     plot <- ggplot(data, aes(x=x, y=value, fill=as.factor(variable))) +
@@ -67,7 +71,8 @@ comp_comm_time_plot <- function(data, title, group, group_label, facet=model_dev
             facet +
             plot_theme() +
             scale_fill_manual(values=col_vec, labels=labels) +
-            labs(title=title, x=group_label, y="Time [s]", fill="")
+            labs(x=group_label, y="Time [s]", fill="")
+    if (!is.null(title)) { plot <- plot + labs(title=title) }
     return(plot)
 }
 
@@ -108,7 +113,7 @@ comm_by_var_helper <- function(data, title_extension, path, file_extension, vari
     save_plot(totalPlot, paste("CommunicationTotal", file_extension, sep="-"), path=path)
 }
 
-loss_plot <- function(data, title, color, color_label, shape=NULL, shape_label="", x="epoch", x_label="Epochs") {
+loss_plot <- function(data, title, color, color_label, shape=NULL, shape_label="", x="epoch", x_label="Epochs", gradient=TRUE) {
     data["color"] <- data[color]
     data["x"] <- data[x]
 
@@ -117,6 +122,8 @@ loss_plot <- function(data, title, color, color_label, shape=NULL, shape_label="
         point_interval <- 5
     }
     data["plot_point"] <- (data$epoch %% point_interval == 0)
+    cols <- col_vec
+    if (gradient) { cols <- col_gradient }
 
     if (!is.null(shape)) {
         data["shape"] <- data[shape]
@@ -129,8 +136,9 @@ loss_plot <- function(data, title, color, color_label, shape=NULL, shape_label="
         geom_line() +
         geom_point(data=subset(data, plot_point)) +
         expand_limits(y = 0) +
-        scale_colour_manual(values=col_gradient) +
-        labs(title=title, x=x_label, y="Validation Loss", color=color_label, shape=shape_label)
+        scale_colour_manual(values=cols) +
+        labs(x=x_label, y="Validation Loss", color=color_label, shape=shape_label)
+    if (!is.null(title)) { plot <- plot + labs(title=title) }
     return(plot)
 }
 

@@ -94,10 +94,15 @@ loadDataDir <- function(path=".") {
 
 ### -------- Saving Plots --------
 outpath <- "../"
-save_plot <- function(plot, name, path=outpath, width=8, height=6) {
+
+default_plot_width=8
+default_plot_height=6
+default_plot_units="cm"
+save_plot <- function(plot, name, path=outpath, width=default_plot_width,
+    height=default_plot_height, units=default_plot_units) {
     filename <- paste(path, name, ".pdf", sep="")
     # print(paste("Plot saved at", filename))
-    ggsave(plot, file=filename, width=width, height=height)
+    ggsave(plot, file=filename, width=width, height=height, units=units)
 }
 
 mkdir <- function(path) {
@@ -177,7 +182,7 @@ prepare_speedup_data <- function(data, threshold_epochs) {
 }
 
 ### -------- Reusable Plot configurations --------
-col_vec = c("red2","darkorange","dodgerblue2","black","chartreuse3", "magenta4", "turquoise", "grey45")
+col_vec = c("red2","dodgerblue2","darkorange","chartreuse3","black", "magenta4", "turquoise", "grey45")
 col_gradient = c("darkorange", "red2", "magenta4", "dodgerblue2", "turquoise", "chartreuse3", "grey45", "black")
 
 plot_theme <- function(...) {
@@ -219,6 +224,7 @@ genericLinePlot <- function(plot) {
 }
 
 pow2s <- c(1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+wide_legend <- guide_legend(keywidth = 3.3, keyheight = 1, ncol = 1)
 speedup_plot <- function(maxThreads) {
     shape_values = c("total_speedup" = 19, "mean_speedup" = 19, "total_efficiency" = NULL, "mean_efficiency" = NULL)
     linetype_values = c("total_speedup" = "solid", "mean_speedup" = "solid", "total_efficiency" = "dashed",
@@ -228,7 +234,6 @@ speedup_plot <- function(maxThreads) {
         "mean_efficiency" = efficiency_alpha)
     labels = c("total_speedup" = "Speedup", "mean_speedup" = "Speedup", "total_efficiency" = "Efficiency",
         "mean_efficiency" = "Efficiency")
-    wide_legend <- guide_legend(keywidth = 3.3, keyheight = 1, ncol = 1)
     list(
         geom_line(),
         geom_point(),
@@ -236,7 +241,7 @@ speedup_plot <- function(maxThreads) {
         scale_linetype_manual("", values = linetype_values, labels = labels, guide=wide_legend),
         scale_alpha_manual("", values = alpha_values, labels = labels, guide=wide_legend),
         geom_abline(intercept = 0, slope = 1, linetype = "dotted", colour="grey"),
-        coord_fixed(ylim=c(0,maxThreads), xlim=c(0,maxThreads)),
+        coord_fixed(ratio=1, ylim=c(0.5,maxThreads), xlim=c(1,maxThreads)),
         scale_y_continuous(breaks=pow2s, sec.axis = sec_axis(~./maxThreads, name = "Efficiency")),
         scale_x_continuous(breaks=pow2s)
     )
