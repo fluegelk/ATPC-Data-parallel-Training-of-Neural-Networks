@@ -1,5 +1,6 @@
 \documentclass[conference,compsoc,a4paper]{IEEEtran}
 \usepackage[utf8]{inputenc}
+\usepackage{graphicx}
 
 
 % configs from ba
@@ -42,6 +43,7 @@
 % correct bad hyphenation here
 \hyphenation{op-tical net-works semi-conduc-tor}
 
+\newcounter{MYtempeqncnt}
 
 \begin{document}
 
@@ -344,6 +346,61 @@ Both machines use Red Hat Enterprise Linux 7 as operating system.
 % illustrate results with plots etc.
 % describe and interpret results
 
+\begin{figure}[h]
+\centering
+\includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-epochs--MNIST}
+\caption{The validation loss after each epoch for different batch sizes using sequential training, LeNet5 and MNIST.
+As expected, the smaller the batch size, the faster is the model's convergence.
+However, at the same time, a larger batch size speeds up the training time per epoch as can be seen in \autoref{fig:loss_by_time}.}
+\label{fig:loss_by_epoch}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=2.5in]{../evaluation/diagrams-paper/epoch-time--LSDF-GPU-MNIST}
+\caption{The ratio of computation to communication time per epoch for different batch sizes using parallel training on four GPUs, LeNet5 and MNIST.
+As expected, both the computation and the communication decreases the larger the batch size.
+The reduction in computation time is in accordance with the results in \autoref{sub:impact_of_the_batch_size}.
+Furthermore, the larger each batch, the fewer batches are in each epoch.
+Since communication is required after each batch, larger batches therefore results in less communication phases in total, and thus less time spent communicating.}
+\label{fig:comm_time_by_batch_size}
+\end{figure}
+
+\begin{figure*}[!t]
+  \normalsize
+  \centering
+  \includegraphics[width=\textwidth]{../evaluation/diagrams-paper/epoch-time-bs-256--MNIST}
+  \caption{The ratio of computation to communication time per epoch when training LeNet5 on MNIST using different machines and different numbers of processes.
+  On LSDF CPU (Subfigure A), the behavior is as expected with the computation time decreasing and the communication time slightly increasing when using more processes.
+  Interestingly, on the GPU (Subfigure B), not only the computation but also the communication time decreases when utilizing more GPUs.
+  This initially counterintuitive observation might be explained by PCI-E piggybacking.
+  The results on ForHLR II, see Subfigure C, show a decrease in computation time with more processes.
+  However, for 8 or more processes, the communication time sharply increases.
+  This might be an effect of ForHLR II's NUMA architecture.
+  Nonetheless, this effect should not be as dramatic as currently measured.
+  }
+  \label{fig:comm_time_by_machine}
+  \vspace*{4pt}
+  \hrulefill
+\end{figure*}
+
+\begin{figure*}[!t]
+  \normalsize
+  \centering
+  \includegraphics[width=\textwidth]{../evaluation/diagrams-paper/speedup--LSDF-GPU-MNIST}
+  \caption{The training speedup (solid with line points) and efficiency (dashed) for LeNet5 on MNIST for different batch sizes using GPUs for training.
+  Subplot A depicts the speedup (and efficiency) per epoch.
+  As expected, larger batch sizes scale better due to the reduced communication.
+  In Subplot B, the total training time until a certain threshold of the validation loss -- in this case $0.5$ -- is reached.
+  TODO interpretation.
+  }
+  \label{fig:speedup}
+  \vspace*{4pt}
+  \hrulefill
+\end{figure*}
+
+% subsection speedup (end)
+
 % section experimental_results (end)
 
 \section{Conclusion} % (fold)
@@ -361,5 +418,16 @@ Both machines use Red Hat Enterprise Linux 7 as operating system.
 % \end{thebibliography}
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,references}
+
+\appendix[Additional Experimental Results]
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-time-and-bs--MNIST}
+\caption{The validation loss by training time for different batch sizes using sequential training, LeNet5 and MNIST.
+This figure is related to \autoref{fig:loss_by_epoch} to the extent that the same data is displayed -- once per epoch and once per training time.
+Displaying the loss by time demonstrates how larger batch sizes result in faster epochs but selecting too large batch sizes can compromise the convergence.}
+\label{fig:loss_by_time}
+\end{figure}
 
 \end{document}
