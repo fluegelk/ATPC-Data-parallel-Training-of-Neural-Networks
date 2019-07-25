@@ -94,6 +94,12 @@ loss4_title <- function(dataset) {
 loss5_title <- function(machine, device, dataset) {
     return(paste("Validation Loss by Time with Batch Size 256\non", machine, device, "with", dataset))
 }
+loss6_title <- function(machine, device, dataset) {
+    return(paste("Validation Loss by Epoch with LeNet5\non", machine, device, "with", dataset))
+}
+loss7_title <- function(machine, device, dataset) {
+    return(paste("Validation Loss by Time with LeNet5\non", machine, device, "with", dataset))
+}
 
 ### -------- Plot File Names --------
 speedup1_filename <- function(machine, device, dataset) {
@@ -122,6 +128,12 @@ loss4_filename <- function(dataset) {
 }
 loss5_filename <- function(machine, device, dataset) {
     return(paste("validation-loss-by-time-and-hw-", machine, device, dataset, sep="-"))
+}
+loss6_filename <- function(machine, device, dataset) {
+    return(paste("validation-loss-seq-vs-par-by-epoch-", machine, device, dataset, sep="-"))
+}
+loss7_filename <- function(machine, device, dataset) {
+    return(paste("validation-loss-seq-vs-par-by-time-", machine, device, dataset, sep="-"))
 }
 
 ### -------- Plot & Save Functions --------
@@ -221,10 +233,63 @@ plot_loss5 <- function(data, var_machine, var_device, var_dataset, path) {
 
     title <- loss5_title(var_machine, var_device, var_dataset)
     filename <- loss5_filename(var_machine, var_device, var_dataset)
-    plot <- loss_plot(data, title, color="model_renamed", color_label="Model",
-        shape="training_node_count", shape_label="Training",
-        x="summedTotalTime", x_label="Training Time [s]")
+
+    plot <- loss_plot(data, title, shape="model_renamed", shape_label="Model",
+        color="training_node_count", color_label="Training",
+        x="summedTotalTime", x_label="Training Time [s]", gradient=FALSE)
     save_plot(plot, filename, path=path)
+}
+plot_loss6 <- function(data, var_machine, var_device, var_dataset, path) {
+    data <- subset(data, model == "LeNet5")
+    data <- subset(data, machine_renamed == var_machine & device == var_device & dataset == var_dataset)
+    data <- subset(data, training == "Sequential" | nodeCount == max(data$nodeCount))
+
+    title <- loss6_title(var_machine, var_device, var_dataset)
+    filename <- loss6_filename(var_machine, var_device, var_dataset)
+
+
+    plot <- ggplot(data, aes(x=epoch, y=validationLoss, color=as.factor(training_node_count))) +
+        plot_theme() +
+        geom_line() +
+        expand_limits(y = 0) +
+        scale_colour_manual(values=col_vec) +
+        labs(title=title, x="Epoch", y="Validation Loss", color="Training") +
+        facet_wrap(~batch_size)
+    save_plot(plot, filename, path=path)
+}
+plot_loss7 <- function(data, var_machine, var_device, var_dataset, path) {
+    data <- subset(data, model == "LeNet5")
+    data <- subset(data, machine_renamed == var_machine & device == var_device & dataset == var_dataset)
+    data <- subset(data, training == "Sequential" | nodeCount == max(data$nodeCount))
+
+    title <- loss7_title(var_machine, var_device, var_dataset)
+    filename <- loss7_filename(var_machine, var_device, var_dataset)
+
+    plot <- ggplot(data, aes(x=summedTotalTime, y=validationLoss, color=as.factor(training_node_count))) +
+        plot_theme() +
+        geom_line() +
+        expand_limits(y = 0) +
+        scale_colour_manual(values=col_vec) +
+        labs(title=title, x="Training Time [s]", y="Validation Loss", color="Training") +
+        facet_wrap(~batch_size)
+    save_plot(plot, filename, path=path, width=12)
+}
+
+plot_gpu_vs_cpu <- function(data, var_dataset, path) {
+    data <- subset(data, model == "LeNet5" & dataset == var_dataset & training == "Sequential")
+    data["machine_device"] <- paste(data$machine_renamed, data$device)
+
+    filename <- paste("gpu_vs_cpu_", var_dataset, sep="")
+    title <- paste("Validation Loss on ", var_dataset, " per Epoch on CPU and GPU for the Sequential Training", sep="")
+
+    plot <- ggplot(data, aes(x=epoch, y=validationLoss, color=as.factor(machine_device))) +
+        plot_theme() +
+        geom_line() +
+        expand_limits(y = 0) +
+        scale_colour_manual(values=col_vec) +
+        labs(title=title, x="Epoch", y="Validation Loss", color="Hardware") +
+        facet_wrap(~batch_size)
+    save_plot(plot, filename, path=path, width=12)
 }
 
 path <- outpath
@@ -270,3 +335,20 @@ plot_loss5(data_with_ForHLR2_Sequential, "LSDF", "GPU", "MNIST", path)
 plot_loss5(data_with_ForHLR2_Sequential, "LSDF", "GPU", "CIFAR10", path)
 plot_loss5(data_with_ForHLR2_Sequential, "ForHLR II", "CPU", "MNIST", path)
 plot_loss5(data_with_ForHLR2_Sequential, "ForHLR II", "CPU", "CIFAR10", path)
+
+plot_loss6(data_with_ForHLR2_Sequential, "LSDF", "CPU", "MNIST", path)
+plot_loss6(data_with_ForHLR2_Sequential, "LSDF", "CPU", "CIFAR10", path)
+plot_loss6(data_with_ForHLR2_Sequential, "LSDF", "GPU", "MNIST", path)
+plot_loss6(data_with_ForHLR2_Sequential, "LSDF", "GPU", "CIFAR10", path)
+plot_loss6(data_with_ForHLR2_Sequential, "ForHLR II", "CPU", "MNIST", path)
+plot_loss6(data_with_ForHLR2_Sequential, "ForHLR II", "CPU", "CIFAR10", path)
+
+plot_loss7(data_with_ForHLR2_Sequential, "LSDF", "CPU", "MNIST", path)
+plot_loss7(data_with_ForHLR2_Sequential, "LSDF", "CPU", "CIFAR10", path)
+plot_loss7(data_with_ForHLR2_Sequential, "LSDF", "GPU", "MNIST", path)
+plot_loss7(data_with_ForHLR2_Sequential, "LSDF", "GPU", "CIFAR10", path)
+plot_loss7(data_with_ForHLR2_Sequential, "ForHLR II", "CPU", "MNIST", path)
+plot_loss7(data_with_ForHLR2_Sequential, "ForHLR II", "CPU", "CIFAR10", path)
+
+plot_gpu_vs_cpu(data_with_ForHLR2_Sequential, "MNIST", path)
+plot_gpu_vs_cpu(data_with_ForHLR2_Sequential, "CIFAR10", path)
