@@ -176,11 +176,11 @@ plot_speedup2 <- function(data, var_machine="LSDF", var_device="GPU", var_batch_
     }
 
     mean_speedup <- plot_helper(subset(data, variable %in% mean_vars), NULL)+
-        theme(legend.position="bottom", legend.direction="vertical")+
+        theme(legend.position="right", legend.direction="vertical")+
         guides(color=guide_legend(ncol=1))
 
     filename <- speedup2_filename(var_batch_size)
-    save_plot(mean_speedup, filename, path=path, height=default_plot_height*2)
+    save_plot(mean_speedup, filename, path=path, width=default_plot_width*1.2)
 }
 
 plot_commtime_hardware <- function(data, var_machine, var_device, var_dataset="MNIST", var_model="LeNet5", var_batch_size=256, path) {
