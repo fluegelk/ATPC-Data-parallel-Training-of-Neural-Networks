@@ -691,6 +691,31 @@ In accordance with the high communication times observed in \autoref{sub:communi
 
 \section{Conclusion} % (fold)
 \label{sec:conclusion}
+
+In this paper, we survey different techniques to parallelizing and distributing the training of neural networks, focusing primarily on convolutional neural networks for computer vision.
+We discuss both model and data parallelism, including the different data parallel versions of synchronous and asynchronous SGD.
+%
+We implement one such synchronous SGD and evaluate it by training CNNs on the two image classification dataset MNIST and CIFAR10.
+This implementation achieves decent speedups per epoch of up to $3.21$ on four GPUs and $7.70$ on 16 CPUs.
+When comparing different batch sizes, we can confirm the established notion that large batch sizes reduce both the computation and communication per epoch, thus improving the scalability, but at the same time reduce the improvement per epoch.
+
+We observe several interesting communication effects that raise further questions.
+On the GPU, we measure a decrease in communication when using more GPUs, an effect we cannot fully explain at the moment, but which might be attributed to PCI-E piggybacking in the GPU-CPU-communication.
+Furthermore, on ForHLR II, we observe a significant increase in communication for more than four processes.
+This might partially be explained by the NUMA architecture; however, NUMA should not cause delays that extreme.
+
+Altogether, a more detailed evaluation than what is possible in this seminar would be necessary to investigate the observed effects thoroughly.
+There are several aspects that could be considered in the future.
+Besides a more comprehensive evaluation, the currently rather prototypical implementation could be improved to increase the performance and scalability.
+Another task is implementing and comparing other parallelization approaches such as asynchronous data parallelism, model parallelism, and hybrids between those two.
+%
+The current experiments are limited to a small set of models and datasets.
+Testing it on other types of CNNs, using larger training sets or even other types of computer vision task might give further insight into the scalability of data parallel training and establish the usability for a wider array of applications.
+%
+Finally, one could investigate parallelizing other areas of neural network applications.
+There have, for example, been multiple works showing that networks for speech processing are significantly harder to parallelize and scale than computer vision models \cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic,dean2012-Large-scale-distributed}.
+
+
 % summarize contributions, reference to introduction/abstract
 % summarize central results and implications
 % revisit section key points
