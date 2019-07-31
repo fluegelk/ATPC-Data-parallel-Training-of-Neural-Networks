@@ -236,12 +236,12 @@ speedup_plot <- function(maxThreads) {
         "mean_efficiency" = "Efficiency")
     list(
         geom_line(),
-        geom_point(),
+        geom_point(size=1),
         scale_shape_manual("", values = shape_values, labels = labels, guide=wide_legend),
         scale_linetype_manual("", values = linetype_values, labels = labels, guide=wide_legend),
         scale_alpha_manual("", values = alpha_values, labels = labels, guide=wide_legend),
         geom_abline(intercept = 0, slope = 1, linetype = "dotted", colour="grey"),
-        coord_fixed(ratio=1, ylim=c(0.5,maxThreads), xlim=c(1,maxThreads)),
+        coord_fixed(ratio=1, ylim=c(0,maxThreads), xlim=c(0,maxThreads)),
         scale_y_continuous(breaks=pow2s, sec.axis = sec_axis(~./maxThreads, name = "Efficiency")),
         scale_x_continuous(breaks=pow2s)
     )

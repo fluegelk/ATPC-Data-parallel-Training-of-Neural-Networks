@@ -101,6 +101,9 @@ plot_theme <- function(...) {
 speedup_filename <- function(machine, device, dataset) {
     return(paste("speedup-", machine, device, dataset, sep="-"))
 }
+speedup2_filename <- function(batch_size) {
+    return(paste("speedup-all--bs", batch_size, sep="-"))
+}
 commtime_hardware_filename <- function(dataset) {
     return(paste("epoch-time-bs-256-", dataset, sep="-"))
 }
@@ -113,8 +116,23 @@ loss1_filename <- function(dataset) {
 loss2_filename <- function(dataset) {
     return(paste("validation-loss-by-time-and-bs-", dataset, sep="-"))
 }
+loss3_filename <- function(batch_size) {
+    return(paste("validation-loss-by-model-and-dataset--bs", batch_size, sep="-"))
+}
 
 ### -------- Plot & Save Functions --------
+print_speedups <- function(data, var_dataset="MNIST", var_model="LeNet5") {
+    data <- subset(data, dataset == var_dataset & model == var_model)
+    data <- prepare_speedup_data(data, threshold_epochs)
+
+    data$nodeCount <- ifelse(data$device == "CPU" & data$nodeCount == 4, 0, data$nodeCount)
+    data <- subset(data, batch_size %in% c(16,512) & nodeCount %in% c(4,16) & variable %in% c("mean_speedup", "total_speedup"))
+    data <- data[c("batch_size", "nodeCount", "device", "machine_renamed", "variable", "value")]
+
+
+    print(data)
+}
+
 
 plot_speedup <- function(data, var_machine, var_device, var_dataset="MNIST", var_model="LeNet5", path) {
     data <- subset(data, machine_renamed == var_machine & device == var_device & dataset == var_dataset & model == var_model)
@@ -124,9 +142,10 @@ plot_speedup <- function(data, var_machine, var_device, var_dataset="MNIST", var
     mean_vars <- c("mean_speedup", "mean_efficiency")
     total_vars <- c("total_speedup", "total_efficiency")
 
-
     plot_helper <- function(data, title) {
-        speedup_plot_helper(data, maxThreads, title, "batch_size", "Batch Size")
+        speedup_plot_helper(data, maxThreads, title, "batch_size", "Batch Size") +
+            scale_y_continuous(breaks=c(1,2,3,4), sec.axis = sec_axis(~./maxThreads, name = "Efficiency")) +
+            scale_x_continuous(breaks=c(1,2,3,4))
     }
 
     total_speedup <- plot_helper(subset(data, variable %in% total_vars), "Total Training Speedup") +
@@ -139,6 +158,29 @@ plot_speedup <- function(data, var_machine, var_device, var_dataset="MNIST", var
 
     filename <- speedup_filename(var_machine, var_device, var_dataset)
     save_plot(plot, filename, path=path, height=default_plot_height*1.5, width=double_col_plot_width*0.85)
+}
+
+plot_speedup2 <- function(data, var_machine="LSDF", var_device="GPU", var_batch_size=256, path) {
+    data <- subset(data, machine_renamed == var_machine & device == var_device & batch_size == var_batch_size)
+    data <- prepare_speedup_data(data, threshold_epochs)
+    data["model_dataset"] <- paste(data$model_renamed, data$dataset)
+    maxThreads <- max(data$nodeCount)
+
+    mean_vars <- c("mean_speedup", "mean_efficiency")
+    total_vars <- c("total_speedup", "total_efficiency")
+
+    plot_helper <- function(data, title) {
+        speedup_plot_helper(data, maxThreads, title, "model_dataset", "Model and Dataset", gradient=FALSE) +
+            scale_y_continuous(breaks=c(1,2,3,4), sec.axis = sec_axis(~./maxThreads, name = "Efficiency")) +
+            scale_x_continuous(breaks=c(1,2,3,4))
+    }
+
+    mean_speedup <- plot_helper(subset(data, variable %in% mean_vars), NULL)+
+        theme(legend.position="bottom", legend.direction="vertical")+
+        guides(color=guide_legend(ncol=1))
+
+    filename <- speedup2_filename(var_batch_size)
+    save_plot(mean_speedup, filename, path=path, height=default_plot_height*2)
 }
 
 plot_commtime_hardware <- function(data, var_machine, var_device, var_dataset="MNIST", var_model="LeNet5", var_batch_size=256, path) {
@@ -192,27 +234,39 @@ CIFAR_Loss_Legend <- list(
     guides(color=guide_legend(ncol=3))
 )
 
-plot_loss1 <- function(data, var_machine="LSDF", var_device="GPU", var_dataset="MNIST", var_model="LeNet5", path) {
+plot_sequential_batch_size_loss <- function(data, var_machine, var_device, var_dataset, var_model, path, var_x, x_label, filename) {
     data <- subset(data, machine_renamed == var_machine & device == var_device & dataset == var_dataset & model == var_model)
     data <- subset(data, training == "Sequential")
 
-    plot <- loss_plot(data, NULL, color="batch_size", color_label="Batch Size", x="epoch", x_label="Epochs")
+    plot <- loss_plot(data, NULL, color="batch_size", color_label="Batch Size", x=var_x, x_label=x_label)
     if (var_dataset == "MNIST") { plot <- plot + MNIST_Loss_Legend }
     else { plot <- plot + CIFAR_Loss_Legend }
 
-    filename <- loss1_filename(var_dataset)
     save_plot(plot, filename, path=path)
 }
+
+plot_loss1 <- function(data, var_machine="LSDF", var_device="GPU", var_dataset="MNIST", var_model="LeNet5", path) {
+    filename <- loss1_filename(var_dataset)
+    plot_sequential_batch_size_loss(data, var_machine, var_device, var_dataset, var_model, path, "epoch", "Epochs", filename)
+}
+
 plot_loss2 <- function(data, var_machine="LSDF", var_device="GPU", var_dataset="MNIST", var_model="LeNet5", path) {
-    data <- subset(data, machine_renamed == var_machine & device == var_device & dataset == var_dataset & model == var_model)
+    filename <- loss2_filename(var_dataset)
+    plot_sequential_batch_size_loss(data, var_machine, var_device, var_dataset,
+        var_model, path, "summedTotalTime", "Training Time [s]", filename)
+}
+
+plot_loss3 <- function(data, var_machine="LSDF", var_device="GPU", var_batch_size=256, path) {
+    data <- subset(data, machine_renamed == var_machine & device == var_device & batch_size == var_batch_size)
     data <- subset(data, training == "Sequential")
 
-    plot <- loss_plot(data, NULL, color="batch_size", color_label="Batch Size",
-        x="summedTotalTime", x_label="Training Time [s]")
-    if (var_dataset == "MNIST") { plot <- plot + MNIST_Loss_Legend }
-    else { plot <- plot + CIFAR_Loss_Legend }
+    plot <- loss_plot(data, NULL, color="model_renamed", color_label="Model",
+        x="epoch", x_label="Epochs", gradient=FALSE) +
+        theme(legend.position = "bottom", legend.direction="horizontal") +
+        guides(color=guide_legend(nrow=1)) +
+        facet_wrap(~dataset, scales="free_x")
 
-    filename <- loss2_filename(var_dataset)
+    filename <- loss3_filename(var_batch_size)
     save_plot(plot, filename, path=path)
 }
 
@@ -220,13 +274,16 @@ path <- outpath
 filteredEpochData <- filter_epochs_by_loss_threshold(data, threshold_epochs)
 filteredEpochData <- subset(filteredEpochData, epoch != 0)
 
+print_speedups(data=data_with_ForHLR2_Sequential)
 plot_speedup(data=data_with_ForHLR2_Sequential, var_machine="LSDF", var_device="GPU", path=path)
+plot_speedup2(data=data_with_ForHLR2_Sequential, path=path)
 
-# plot_commtime_hardware(data=filteredEpochData, path=path)
-# plot_commtime_batchsize(data=filteredEpochData, var_machine="LSDF", var_device="GPU", path=path)
+plot_commtime_hardware(data=filteredEpochData, path=path)
+plot_commtime_batchsize(data=filteredEpochData, var_machine="LSDF", var_device="GPU", path=path)
 
-# plot_loss1(data=data_with_ForHLR2_Sequential, path=path)
-# plot_loss2(data=data_with_ForHLR2_Sequential, path=path)
+plot_loss1(data=data_with_ForHLR2_Sequential, path=path)
+plot_loss2(data=data_with_ForHLR2_Sequential, path=path)
+plot_loss3(data=data_with_ForHLR2_Sequential, path=path)
 
-# plot_loss1(data=data_with_ForHLR2_Sequential, var_dataset="CIFAR10", path=path)
-# plot_loss2(data=data_with_ForHLR2_Sequential, var_dataset="CIFAR10", path=path)
+plot_loss1(data=data_with_ForHLR2_Sequential, var_dataset="CIFAR10", path=path)
+plot_loss2(data=data_with_ForHLR2_Sequential, var_dataset="CIFAR10", path=path)

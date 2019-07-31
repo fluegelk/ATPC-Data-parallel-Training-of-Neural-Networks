@@ -5,14 +5,17 @@ Sys.setenv(LANG = "en")
 source("utils.R")
 
 ### -------- Plot functions --------
-speedup_plot_helper <- function(data, maxThreads, title, color, color_label, facet=NULL) {
+speedup_plot_helper <- function(data, maxThreads, title, color, color_label, facet=NULL, gradient=TRUE) {
     data["color"] <- data[color]
+
+    cols <- col_vec
+    if (gradient) { cols <- col_gradient }
 
     plot <- ggplot(data, aes(x=nodeCount, y=value, color=as.factor(color), shape=variable, linetype=variable, alpha=variable)) +
             speedup_plot(maxThreads) +
             facet +
             plot_theme() +
-            scale_colour_manual(values=col_gradient) +
+            scale_colour_manual(values=cols) +
             labs(x="p", y="Speedup", color=color_label)
     if (!is.null(title)) { plot <- plot + labs(title=title) }
     return(plot)
@@ -117,11 +120,8 @@ loss_plot <- function(data, title, color, color_label, shape=NULL, shape_label="
     data["color"] <- data[color]
     data["x"] <- data[x]
 
-    point_interval <- 1
-    if (max(data$epoch) > 20) {
-        point_interval <- 5
-    }
-    data["plot_point"] <- (data$epoch %% point_interval == 0)
+    data["plot_point"] <- ifelse(data$dataset == "MNIST", TRUE, data$epoch %% 5 == 0)
+
     cols <- col_vec
     if (gradient) { cols <- col_gradient }
 
