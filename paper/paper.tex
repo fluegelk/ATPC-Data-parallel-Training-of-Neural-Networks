@@ -47,7 +47,7 @@
 
 \begin{document}
 
-\title{Data-parallel Training of Neural Networks}
+\title{Data Parallel Training of Neural Networks}
 
 
 % author names and affiliations
@@ -68,12 +68,13 @@ Techniques to parallelize and distribute the training in order to reduce these t
 This seminar paper surveys different strategies for both distribution and parallelization when training neural networks.
 Two essential principles to distinguish different parallelization approaches are model and data parallelism.
 While we describe the general concept of model parallelism, this paper focuses mostly on data parallelism.
-We illustrate multiple data-parallel algorithms, including both synchronous and asynchronous communication schemes.
+We illustrate multiple data parallel algorithms, including both synchronous and asynchronous communication schemes.
 
-Furthermore, we implement synchronous SGD, a data-parallel training technique based on synchronous communication via MPI-AllReduce.
+Furthermore, we implement synchronous SGD, a data parallel training technique based on synchronous communication via MPI all-reduce.
 We test this implementation by training LeNet5 on the image classification datasets MNIST and CIFAR10.
-Using four GPUs, we achieve speedups of up to X. % TODO set speedup
-With 16 CPUs on a shared-memory machine, we even reach speedups of Y. % TODO set speedup
+Using four GPUs, we achieve speedups of up to 3.21.
+With 16 CPUs on a shared-memory machine, we even reach speedups of 7.70.
+Since all communication is done via MPI, our implementation could be applied to a distributed machine as-is.
 We can observe several hardware influences, especially on the GPU, including the general speedup of GPUs compared to the CPU, the communication overhead of GPU-CPU-communication, and possible effects of PCI-E piggybacking.
 Additionally, we evaluate the effects of the batch size on both sequential training and scalability.
 Our results conform to the notion that while larger batch sizes reduce the training time per epoch and increase the scalability, they reduce the convergence per epoch at the same time.
@@ -99,50 +100,49 @@ Our results conform to the notion that while larger batch sizes reduce the train
 
 %% Motivation
 Neural networks have become an essential factor in solving many practical challenges.
-There is a multitude of applications from computer vision, audio and speech processing, to processing text and natural language \cite{chen2016-Revisiting-distributed-synchronous-SGD,dean2012-Large-scale-distributed,yadan2013-Multi-GPU-Training}.
+There is a multitude of applications from computer vision, audio and speech processing, to processing text and natural languages \cite{chen2016-Revisiting-distributed-synchronous-SGD,dean2012-Large-scale-distributed,yadan2013-Multi-GPU-Training}.
 More practical applications include machine translation \cite{sutskever2014sequence}, self-driving cars, and automatic driver assistance systems \cite{jin2016-How-to-scale}.
 %
 In this paper, we focus mostly on the convolutional neural networks (CNNs) used in computer vision.
 Typical tasks include image classification, character and object recognition, and object detection \cite{paine2013-GPU-async-SGD}.
 
 
-The recent advances in deep learning are facilitated by a significant increase in both model size and available training data, accompanied further by the increased computing power \cite{chen2016-Revisiting-distributed-synchronous-SGD,chilimbi2014-Project-Adam}.
+The recent advances in deep learning are facilitated by a significant increase in both model size and available training data, accompanied further by the increased computational power \cite{chen2016-Revisiting-distributed-synchronous-SGD,chilimbi2014-Project-Adam}.
 %
 While datasets used to be rather small contain tens of thousands of images \cite{lecun1998gradient,krizhevsky2009CIFAR10}, recent datasets like ImageNet \cite{imagenet_cvpr09} contain millions of images for thousands of classes.
-Moreover, the internal datasets of some companies are said to contain billions of images with hundreds of thousands of classes \cite{iandola2016-Firecaffe}.
+Moreover, the internal datasets of some companies are said to contain billions of images with hundreds of thousands of classes \cite{iandola2016-Firecaffe}, and self-driving cars collect almost one gigabyte per second \cite{jin2016-How-to-scale}.
 %
-To accommodate these massive datasets models with larger learning capacities are required \cite{krizhevsky2012-AlexNet}.
+To accommodate these massive datasets, models with larger learning capacities are required \cite{krizhevsky2012-AlexNet}.
 For example, deep learning significantly increases the number of layers in a neural network, which in turn multiplies the number of model parameters.
 In general, larger models with more parameters can yield better performance than smaller networks \cite{coates2013-DL-COTS-HPC,dean2012-Large-scale-distributed,krizhevsky2012-AlexNet}.
 
 
-Increasing the number of training examples and model parameters can improve the resulting accuracy significantly \cite{dean2012-Large-scale-distributed}
-However, all those advances lead to substantially long training times of multiple days or even weeks \cite{jin2016-How-to-scale,chilimbi2014-Project-Adam}.
+Increasing the number of training examples and model parameters can improve the resulting accuracy significantly \cite{dean2012-Large-scale-distributed}.
+However, all those advances lead to substantially long training times of multiple days or even weeks \cite{jin2016-How-to-scale,chilimbi2014-Project-Adam,sergeev2018horovod}.
 This makes experiments difficult and time-consuming \cite{yadan2013-Multi-GPU-Training,jiang2018-FiLayer} and is often a bottleneck to developing new, high accuracy model architectures \cite{iandola2016-Firecaffe}.
 
-Consequently, parallelizing and distributing the training is necessary further to utilize all available computational power \cite{jiang2018-FiLayer,recht2011-Hogwild}.
+Consequently, parallelizing and distributing the training is necessary to utilize all available computational power further \cite{jiang2018-FiLayer,recht2011-Hogwild}.
 Additionally, their sheer size prevents some datasets and models from fitting into the memory of a single machine \cite{recht2011-Hogwild,dean2012-Large-scale-distributed}.
 This is especially prevalent when training on GPUs, as the available memory is much smaller than on CPUs \cite{dean2012-Large-scale-distributed}.
 Circumventing memory bottlenecks can thus be an additional advantage when using distributed training.
-% TODO: warum sind bisherige Ansätze (z.B. in PyTorch/Tensorflow) nicht gut genug?
 
 % Hypthesis and overview over results/contributions
 Different strategies for parallel and distributed training of neural networks have been developed.
-Most techniques apply model parallelism, data parallelism, or hybrid approaches combining both approaches.
+Most techniques apply model parallelism, data parallelism, or hybrid approaches combining both methods.
 This paper discusses these different variants in detail, comparing their assets and drawbacks, and when to use which approach.
 Additionally, we implement data parallel training using synchronous communication with all-reduce.
-We test this training using convolutional neural networks on the well-known image classification problems MNIST and CIFAR10.
-TODO: short summary of results/conclusion % TODO: something about the results from section 6/7
+We test this training using convolutional neural networks like LeNet5 \cite{lecun1998gradient} on the well-known image classification problems MNIST \cite{lecun1998gradient} and \mbox{CIFAR10} \cite{krizhevsky2009CIFAR10}.
+Using LeNet5, we achieve training speedups of up to $3.21$ on four GPUs and $7.70$ on 16 CPUs.
+We observe several interesting communication effects that might be attributed to GPU-CPU-communication, PCI-E piggybacking, and NUMA architecture.
 
 %% Organisation of this paper
 This seminar paper is organized as follows:
 The next section gives a short introduction to neural networks and their training.
 After that, \autoref{sec:related_work} gives an overview of previous and related work on parallelizing the training of neural networks.
-The different parallelization techniques are covered in detail in \autoref{sec:parallelizing_neural_networks}.
-We discuss both model and data parallelism as well as hybrid approaches.
-\autoref{sec:implementation} describes the implementation of data-parallel training using synchronous stochastic gradient descent (SGD).
+The different parallelization techniques are covered in detail in \autoref{sec:parallelizing_neural_networks}, where we discuss both model and data parallelism.
+\autoref{sec:implementation} describes the implementation of a data parallel training using synchronous stochastic gradient descent (SGD).
 The results are illustrated in \autoref{sec:experimental_results}.
-Finally, \autoref{sec:conclusion} summarizes our contributions and results and gives an outlook on possible future work.
+Finally, \autoref{sec:conclusion} summarizes our results and gives an outlook on possible future work.
 
 % section introduction (end)
 
