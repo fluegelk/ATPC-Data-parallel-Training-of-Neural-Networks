@@ -283,11 +283,55 @@ Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can 
 
 \section{Parallelizing Neural Networks} % (fold)
 \label{sec:parallelizing_neural_networks}
+This section gives an overview of the different algorithms used for distributed training of neural networks.
+There are two main parallelization approaches for neural networks: model and data parallelism.
+Data parallelism can be divided further into synchronous and asynchronous approaches.
+Moreover, model and data parallelism can be combined to hybrid approaches to utilize both techniques as demonstrated, for example, by \cite{krizhevsky2014-One-weird-trick,das2016-Distributed-deep-learning}.
 
 \subsection{Model Parallelism} % (fold)
 \label{sub:model_parallelism}
 % definition/how does it work
-% pro/contra (compared to data-parallelism)
+% pro/contra (compared to data parallelism)
+
+% Definition/how it works
+In model parallelism, the neural network is partitioned into multiple components.
+These model components can then be distributed across multiple machines and trained in parallel.
+They are linked by the connections between neurons in different components.
+During training, the output from one component is communicated to the next along these connections \cite{dean2012-Large-scale-distributed}.
+\autoref{fig:model_parallelism} by Dean et al. \cite{dean2012-Large-scale-distributed} gives an example of this process.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=2.5in]{images/model-parallelism}
+\caption{
+A schematic illustration by Dean et al. \cite{dean2012-Large-scale-distributed} of partitioning a neural network to distribute it for model parallelism.
+The connections printed in bold cross between two model parts.
+These are the connections, along which communication is required.
+Image source: \cite{dean2012-Large-scale-distributed}.
+}
+\label{fig:model_parallelism}
+\end{figure}
+
+Since we communicate neuron outputs, model parallelism generally scales best when the amount of computation per neuron is high \cite{krizhevsky2014-One-weird-trick}.
+This is typically the case in fully-connected layers \cite{krizhevsky2014-One-weird-trick}.
+However, fully-connected layers generally require more communication, as they produce more connections between the model components than models with more ``local connectivity structures'' \cite{dean2012-Large-scale-distributed}.
+
+% Advantages
+By using more machines---and thus more cores and more memory---model parallelism can substantially reduce the training time.
+For example, Dean et al. were able to train large models with significant speedups using up to 144 partitions \cite{dean2012-Large-scale-distributed}.
+%
+Additionally, model parallelism reduces the required memory per machine \cite{dean2012-Large-scale-distributed}.
+The model, including all its parameters, is partitioned and distributed over multiple machines.
+Thus, each machine only needs to store its assigned part of the model and the corresponding parameters.
+%
+This can be a crucial advantage as some models are too large to fit in the memory of a single machine.
+It is especially beneficial on GPUs since they typically offer significantly less memory than CPUs and transferring data from the CPU can pose a severe bottleneck \cite{dean2012-Large-scale-distributed}.
+The available memory is thus often a limiting factor to the model size on GPUs \cite{dean2012-Large-scale-distributed,chilimbi2014-Project-Adam}.
+Using model parallelism, this restriction can be mitigated, and larger models can be trained using multiple GPUs.
+
+There are, however, also some challenges to model parallelism:
+If the required time differs greatly between the machines, faster machines might need to wait a lot for slower machines, which can decrease the obtainable speedup \cite{dean2012-Large-scale-distributed}.
+Additionally, the communication time can introduce a significant overhead, especially if the number of connections between the model components is high.
 
 % subsection model_parallelism (end)
 
@@ -295,16 +339,90 @@ Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can 
 \label{sub:data_parallelism}
 % definition/how does it work in general
 % different approaches: synchronous/asynchronous etc.
-% pro/contra (compared to model-parallelism)
+% pro/contra (compared to model parallelism)
+
+In data parallelism, each machine has its own copy of the neural network.
+Instead of partitioning the model, data parallelism partitions the training data and distributes it across different machines.
+Each machine then processes its assigned training instances and computes local gradients.
+To keep the model copies consistent over all machines, the gradients are communicated between the processes.
+Instead of communicating and aggregating the gradients, it is also possible to first apply local parameter updates, followed by synchronizing these parameters between the processes.
+%
+Data parallelism is generally more efficient if the computation per weight is high, as the model parameters (or gradients) are what is communicated \cite{krizhevsky2014-One-weird-trick}.
+High computation per parameter is very typical for convolutional layers where the kernel weights are reused for all input pixels \cite{krizhevsky2014-One-weird-trick}.
+%
+An important hyper-parameter for data parallelism is the batch size.
+Since the gradients are usually communicated once per batch, we can reduce the required communication by decreasing the number of batches, that is increasing the batch size \cite{krizhevsky2014-One-weird-trick}.
+According to Krizhevsky, data parallelism can be ``arbitrarily efficient'' with a large enough batch size \cite{krizhevsky2014-One-weird-trick}.
+
+There are many different algorithms for synchronizing the model parameters and communicating the gradients.
+Depending on the communication pattern, they can be divided into synchronous or asynchronous techniques.
+Both approaches are described in the following.
+
+\subsubsection{Synchronous Data Parallelism} % (fold)
+\label{ssub:synchronous_data_parallelism}
+Synchronous approaches---using, for example, synchronous SGD---usually consist of two phases alternated in lockstep \cite{jin2016-How-to-scale}.
+In the first phase, each machine processes its assigned training instances and computes a local gradient.
+In the second phase, these local gradients are then aggregated using synchronous communication.
+Typically, this communication is performed via an MPI all-reduce operation, which collects all local gradients and re-distributes an aggregated gradient to all processes.
+
+This communication pattern introduces a synchronization barrier in each second phase, where all processes have to wait for each other.
+As stated by Jin et al., this synchronization barrier actually makes up the majority of the communication overhead on modern networks \cite{jin2016-How-to-scale}.
+It also introduces several problems:
+Synchronous SGDs are prone to a straggler effect meaning ``the slowest nodes prevent the rest from making progress'' \cite{jin2016-How-to-scale}.
+They are also ``not robust in the face of failing processors or nodes'' \cite{jin2016-How-to-scale} since the all-reduce operation cannot complete with any missing processes.
+Additionally, synchronous SGDs might under-utilize the compute-resources when much of the training time is spent waiting for other processes \cite{jin2016-How-to-scale}.
+
+Due to the aforementioned disadvantages, synchronous SGD is often believed to be inferior to asynchronous approaches \cite{chen2016-Revisiting-distributed-synchronous-SGD}.
+However, some recent developments demonstrate synchronous SGDs outperforming asynchronous algorithms:
+For example, Jin et al. find that on more than $32$ nodes synchronous SGDs scales better than their asynchronous Gossiping-SGD \cite{jin2016-How-to-scale}.
+Chen et al. demonstrate their improved synchronous SGDs with additional backup workers offers faster convergence with better accuracy than the compared asynchronous training \cite{chen2016-Revisiting-distributed-synchronous-SGD}.
+
+% subsubsection synchronous_data_parallelism (end)
+
+\subsubsection{Asynchronous Data Parallelism} % (fold)
+\label{ssub:asynchronous_data_parallelism}
+
+Asynchronous approaches typically try to avoid the synchronization barrier inherent to synchronous SGD.
+%
+Many asynchronous techniques use a global parameter server approach.
+These techniques use two types of processes: a parameter server and multiple worker processes.
+The \emph{parameters server} contains the most recent consensus of the model parameters.
+Multiple \emph{workers} process the training data in parallel and compute local gradients.
+However, instead of communicating directly with other workers, the local gradients are sent to the parameter server, which receives them and updates its model parameters accordingly.
+The worker processes periodically fetch the latest parameters from the server to update their copy of the model.
+This process is also illustrated in \autoref{fig:parameter_server} by Dean et al. \cite{dean2012-Large-scale-distributed}.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=2.5in]{images/parameter-server.pdf}
+\caption{
+A schematic illustration of a parameter server by Dean et al. \cite{dean2012-Large-scale-distributed}.
+The parameter server receives gradients $\delta w$ from the workers and applies them to its model parameters.
+Workers can fetch parameters $w$ from the server to update their local model replicas.
+Each worker has its own share of the training data---labeled as data shards in this diagram---which it uses to compute the local gradients.
+Image source: \cite{dean2012-Large-scale-distributed}.
+}
+\label{fig:parameter_server}
+\end{figure}
+
+There are different approaches at which times communication takes place.
+The simplest approach, as described by Dean et al., is sending a gradient and fetching parameters after every mini-batch---that is, the subset of a batch assigned to this worker \cite{dean2012-Large-scale-distributed}.
+They also suggest reducing the commutation by increasing this interval to multiple batches.
+The interval for sending gradients and fetching parameters are not required to be equal \cite{dean2012-Large-scale-distributed}.
+
+Since the workers only communicate with the parameter server and never with other workers, they are independent of each other.
+There is, thus, no synchronization barrier.
+However, asynchronous gradient descent can have its own problems:
+Since all workers communicate all-to-one with the parameter server, a communication bottleneck at the parameter server can occur, while other parts of the network might be underutilized \cite{jin2016-How-to-scale}.
+Furthermore, the convergence can be worse than for synchronous approaches since the workers usually have a slightly outdated copy of the model \cite{jin2016-How-to-scale,chen2016-Revisiting-distributed-synchronous-SGD}.
+This effect is amplified when the communication delay is increased.
+
+Multiple different variations of the classical parameter server approach have been developed, such as Elastic Averaging SGD by Zhang et al. \cite{zhang2015-Elastic-AvgSGD} and Gossiping SGD by Jin et al. \cite{jin2016-How-to-scale}.
+There are also approaches eliminating the global parameter server altogether, like Sergeev et al., who utilize ring-all-reduce operations in their Horovod library to overcome the need for a parameter server \cite{sergeev2018horovod}.
+
+% subsubsection asynchronous_data_parallelism (end)
 
 % subsection data_parallelism (end)
-
-\subsection{Hybrid Approaches} % (fold)
-\label{sub:hybrid_approaches}
-% definition/how does it work
-% motivation, pro/contra to just one parallelism technique
-
-% subsection hybrid_approaches (end)
 
 % section parallelizing_neural_networks (end)
 
