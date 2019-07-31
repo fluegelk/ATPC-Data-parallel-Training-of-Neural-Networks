@@ -51,8 +51,3 @@ def computeAccuracy(net, dataloader, numClasses=None):
     for i in range(numClasses):
         accuracyByClass[i] = class_correct[i] / class_total[i]
     return (overall_accuracy, accuracyByClass)
-
-
-def printClassAccuracy(classNames, accuracyByClass):
-    for i in range(len(classNames)):
-        print('Accuracy of %5s : %2d %%' % (classNames[i], 100 * accuracyByClass[i]))

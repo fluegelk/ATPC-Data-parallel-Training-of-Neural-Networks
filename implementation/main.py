@@ -16,7 +16,6 @@ import HDF5Adapter as h5
 import training
 import testing
 import models
-import visualisation as vis
 from datasets import *
 
 

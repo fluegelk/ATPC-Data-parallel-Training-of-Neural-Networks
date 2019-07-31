@@ -89,3 +89,8 @@ def plotTrainingMetaData(trainingMetaData):
     plotAndSave(data=averageLossPerEpoch, label="averageLoss")
 
     print("Training plots stored at " + path)
+
+
+def printClassAccuracy(classNames, accuracyByClass):
+    for i in range(len(classNames)):
+        print('Accuracy of %5s : %2d %%' % (classNames[i], 100 * accuracyByClass[i]))
