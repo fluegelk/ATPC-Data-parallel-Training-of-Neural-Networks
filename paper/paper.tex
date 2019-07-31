@@ -726,15 +726,39 @@ There have, for example, been multiple works showing that networks for speech pr
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,references}
 
-\appendix[Additional Experimental Results]
+\vfill\null
+\newpage
 
-\begin{figure}[!t]
+\appendix[Additional Experimental Results]
+We also evaluated our implementation using the TorchNet model and CIFAR10 dataset.
+Since those results regarding parallelism are fairly similar to training LeNet5 on MNSIT, they are displayed in this appendix.
+
+\autoref{fig:validation_loss_model_dataset} gives the validation loss per epoch for LeNet5 and TorchNet on both MNIST and CIFAR10.
+We observe that MNIST requires fewer epochs than CIFAR10 to converge and reaches a better overall accuracy even after training for five times as many epochs.
+No significant difference between the two models, LeNet5 and TorchNet, is visible.
+Since they a fairly similar architecture, this is somewhat expected.
+
+\begin{figure}[ht]
 \centering
-\includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-time-and-bs--MNIST}
-\caption{The validation loss by training time for different batch sizes using sequential training, LeNet5 and MNIST.
-This figure is related to \autoref{fig:loss_by_epoch} to the extent that the same data is displayed -- once per epoch and once per training time.
-Displaying the loss by time demonstrates how larger batch sizes result in faster epochs but selecting too large batch sizes can compromise the convergence.}
-\label{fig:loss_by_time}
+\includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-model-and-dataset--bs-256}
+\caption{The sequential validation loss per epoch when training the CNNs LeNet5 and TorchNet on the datasets MNIST and CIFAR10.
+Training on MNIST requires significantly fewer epochs than CIFAR10 while also achieving higher overall accuracy.
+There is no drastic difference between the two models.
+In general, LeNet5 performs slightly better in the first few epochs, but TorchNet achieves higher final accuracy.}
+\label{fig:validation_loss_model_dataset}
 \end{figure}
+
+The speedup per epoch is given in \autoref{fig:speedup_model_dataset}.
+All four tested model-dataset combination scale similarly well.
+The observations made in \autoref{sec:experimental_results} for LeNet5 and MNIST are therefore also applicable to TorchNet and CIFAR10.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=2.5in]{../evaluation/diagrams-paper/speedup-all--bs-256}
+\caption{The speedup and efficiency per epoch on the GPU using all combinations of the two models and datasets with batch size 256.
+All four variants demonstrate very similar parallel behavior.}
+\label{fig:speedup_model_dataset}
+\end{figure}
+
 
 \end{document}
