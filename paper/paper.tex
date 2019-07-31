@@ -1,4 +1,4 @@
-\documentclass[conference,compsoc,a4paper]{IEEEtran}
+\documentclass[conference]{IEEEtran}
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
 
@@ -38,14 +38,14 @@
 \newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
 \newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
 
-\ifCLASSOPTIONcompsoc
-  % IEEE Computer Society needs nocompress option
-  % requires cite.sty v4.0 or later (November 2003)
-  \usepackage[nocompress]{cite}
-\else
+% \ifCLASSOPTIONcompsoc
+%   % IEEE Computer Society needs nocompress option
+%   % requires cite.sty v4.0 or later (November 2003)
+%   \usepackage[nocompress]{cite}
+% \else
   % normal IEEE
   \usepackage{cite}
-\fi
+% \fi
 
 
 % correct bad hyphenation here
@@ -71,21 +71,16 @@ katharina.fluegel@student.kit.edu}}
 
 % General rule: no math, special symbols or citations in the abstract
 \begin{abstract}
-With an increase in both model and data size, training neural networks is increasingly more time-consuming.
+With an increase in both model and data size, training neural networks has become increasingly more time-consuming.
 Techniques to parallelize and distribute the training in order to reduce these training times are thus ever more important.
 This seminar paper surveys different strategies for both distribution and parallelization when training neural networks.
 Two essential principles to distinguish different parallelization approaches are model and data parallelism.
 While we describe the general concept of model parallelism, this paper focuses mostly on data parallelism.
 We illustrate multiple data parallel algorithms, including both synchronous and asynchronous communication schemes.
-
-Furthermore, we implement synchronous SGD, a data parallel training technique based on synchronous communication via MPI all-reduce.
-We test this implementation by training LeNet5 on the image classification datasets MNIST and CIFAR10.
-Using four GPUs, we achieve speedups of up to 3.21.
-With 16 CPUs on a shared-memory machine, we even reach speedups of 7.70.
-Since all communication is done via MPI, our implementation could be applied to a distributed machine as-is.
-We can observe several hardware influences, especially on the GPU, including the general speedup of GPUs compared to the CPU, the communication overhead of GPU-CPU-communication, and possible effects of PCI-E piggybacking.
-Additionally, we evaluate the effects of the batch size on both sequential training and scalability.
-Our results conform to the notion that while larger batch sizes reduce the training time per epoch and increase the scalability, they reduce the convergence per epoch at the same time.
+%
+We have implemented synchronous stochastic gradient descend and evaluate it by training convolutional neural networks on image classification datasets.
+With 16 CPU cores, we achieve speedups of up to 7.70 for the training time per epoch.
+At the same time distributed training decreases the convergences yielding an effective speedup of 6.23.
 
 \end{abstract}
 
@@ -108,43 +103,43 @@ Our results conform to the notion that while larger batch sizes reduce the train
 
 %% Motivation
 Neural networks have become an essential factor in solving many practical challenges.
-There is a multitude of applications from computer vision, audio and speech processing, to processing text and natural languages \cite{chen2016-Revisiting-distributed-synchronous-SGD,dean2012-Large-scale-distributed,yadan2013-Multi-GPU-Training}.
-More practical applications include machine translation \cite{sutskever2014sequence}, self-driving cars, and automatic driver assistance systems \cite{jin2016-How-to-scale}.
+There is a multitude of applications from computer vision, audio and speech processing, to processing text and natural languages~\cite{chen2016-Revisiting-distributed-synchronous-SGD,dean2012-Large-scale-distributed,yadan2013-Multi-GPU-Training}.
+More practical applications include machine translation~\cite{sutskever2014sequence}, self-driving cars, and automatic driver assistance systems~\cite{jin2016-How-to-scale}.
 %
 In this paper, we focus mostly on the convolutional neural networks (CNNs) used in computer vision.
-Typical tasks include image classification, character and object recognition, and object detection \cite{paine2013-GPU-async-SGD}.
+Typical tasks include image classification, character and object recognition, and object detection~\cite{paine2013-GPU-async-SGD}.
 
 
-The recent advances in deep learning are facilitated by a significant increase in both model size and available training data, accompanied further by the increased computational power \cite{chen2016-Revisiting-distributed-synchronous-SGD,chilimbi2014-Project-Adam}.
+The recent advances in deep learning are facilitated by a significant increase in both model size and available training data, accompanied further by the increased computational power~\cite{chen2016-Revisiting-distributed-synchronous-SGD,chilimbi2014-Project-Adam}.
 %
-While datasets used to be rather small contain tens of thousands of images \cite{lecun1998gradient,krizhevsky2009CIFAR10}, recent datasets like ImageNet \cite{imagenet_cvpr09} contain millions of images for thousands of classes.
-Moreover, the internal datasets of some companies are said to contain billions of images with hundreds of thousands of classes \cite{iandola2016-Firecaffe}, and self-driving cars collect almost one gigabyte per second \cite{jin2016-How-to-scale}.
+While datasets used to be rather small, containing tens of thousands of images~\cite{lecun1998gradient,krizhevsky2009CIFAR10}, recent datasets like ImageNet~\cite{imagenet_cvpr09} contain millions of images for thousands of classes.
+Moreover, the internal datasets of some companies are said to contain billions of images with hundreds of thousands of classes~\cite{iandola2016-Firecaffe}, and self-driving cars collect almost one gigabyte per second~\cite{jin2016-How-to-scale}.
 %
-To accommodate these massive datasets, models with larger learning capacities are required \cite{krizhevsky2012-AlexNet}.
+To accommodate these massive datasets, models with larger learning capacities are required~\cite{krizhevsky2012-AlexNet}.
 For example, deep learning significantly increases the number of layers in a neural network, which in turn multiplies the number of model parameters.
-In general, larger models with more parameters can yield better performance than smaller networks \cite{coates2013-DL-COTS-HPC,dean2012-Large-scale-distributed,krizhevsky2012-AlexNet}.
+In general, larger models with more parameters can yield better performance than smaller networks~\cite{coates2013-DL-COTS-HPC,dean2012-Large-scale-distributed,krizhevsky2012-AlexNet}.
 
 
-Increasing the number of training examples and model parameters can improve the resulting accuracy significantly \cite{dean2012-Large-scale-distributed}.
-However, all those advances lead to substantially long training times of multiple days or even weeks \cite{jin2016-How-to-scale,chilimbi2014-Project-Adam,sergeev2018horovod}.
-This makes experiments difficult and time-consuming \cite{yadan2013-Multi-GPU-Training,jiang2018-FiLayer} and is often a bottleneck to developing new, high accuracy model architectures \cite{iandola2016-Firecaffe}.
+Increasing the number of training examples and model parameters can improve the resulting accuracy significantly~\cite{dean2012-Large-scale-distributed}.
+However, all those advances lead to substantially long training times of multiple days or even weeks~\cite{jin2016-How-to-scale,chilimbi2014-Project-Adam,sergeev2018horovod}.
+This makes experiments difficult and time-consuming~\cite{yadan2013-Multi-GPU-Training,jiang2018-FiLayer} and is often a bottleneck to developing new, high accuracy model architectures~\cite{iandola2016-Firecaffe}.
 
-Consequently, parallelizing and distributing the training is necessary to utilize all available computational power further \cite{jiang2018-FiLayer,recht2011-Hogwild}.
-Additionally, their sheer size prevents some datasets and models from fitting into the memory of a single machine \cite{recht2011-Hogwild,dean2012-Large-scale-distributed}.
-This is especially prevalent when training on GPUs, as the available memory is much smaller than on CPUs \cite{dean2012-Large-scale-distributed}.
+Consequently, parallelizing and distributing the training is necessary to utilize all available computational power further~\cite{jiang2018-FiLayer,recht2011-Hogwild}.
+Additionally, their sheer size prevents some datasets and models from fitting into the memory of a single machine~\cite{recht2011-Hogwild,dean2012-Large-scale-distributed}.
+This is especially prevalent when training on GPUs, as the available memory is much smaller than on CPUs~\cite{dean2012-Large-scale-distributed}.
 Circumventing memory bottlenecks can thus be an additional advantage when using distributed training.
 
 % Hypthesis and overview over results/contributions
 Different strategies for parallel and distributed training of neural networks have been developed.
 Most techniques apply model parallelism, data parallelism, or hybrid approaches combining both methods.
-This paper discusses these different variants in detail, comparing their assets and drawbacks, and when to use which approach.
-Additionally, we implement data parallel training using synchronous communication with all-reduce.
-We test this training using convolutional neural networks like LeNet5 \cite{lecun1998gradient} on the well-known image classification problems MNIST \cite{lecun1998gradient} and \mbox{CIFAR10} \cite{krizhevsky2009CIFAR10}.
+This paper discusses these different variants in detail, comparing their advantages and drawbacks, and when to use which approach.
+Additionally, we implement data parallel training using synchronous communication to average the gradients.
+We test this training using convolutional neural networks like LeNet5~\cite{lecun1998gradient} on the well-known image classification problems MNIST~\cite{lecun1998gradient} and \mbox{CIFAR10}~\cite{krizhevsky2009CIFAR10}.
 Using LeNet5, we achieve training speedups of up to $3.21$ on four GPUs and $7.70$ on 16 CPUs.
 We observe several interesting communication effects that might be attributed to GPU-CPU-communication, PCI-E piggybacking, and NUMA architecture.
 
 %% Organisation of this paper
-This seminar paper is organized as follows:
+This seminar paper is organized as follows.
 The next section gives a short introduction to neural networks and their training.
 After that, \autoref{sec:related_work} gives an overview of previous and related work on parallelizing the training of neural networks.
 The different parallelization techniques are covered in detail in \autoref{sec:parallelizing_neural_networks}, where we discuss both model and data parallelism.
@@ -157,13 +152,15 @@ Finally, \autoref{sec:conclusion} summarizes our results and gives an outlook on
 \section{Preliminaries} % (fold)
 \label{sec:preliminaries}
 This section gives a short introduction to machine learning using convolutional neural networks, defining all necessary concepts used in the remainder of this paper.
-More in-depth information can, for example, be found in \cite{goodfellow2016-DeepLearningBook}.
-Additionally, we give a brief overview of GPU-accelerated training of neural networks and MPI.
+More in-depth information can, for example, be found in~\cite{goodfellow2016-DeepLearningBook}.
+Additionally, we give a brief overview of GPU-accelerated training of neural networks and the Message Passing Interface (MPI).
 
-A dataset typically consists of two separate sets of images, one for training the model and one to test its accuracy on unseen inputs to avoid overfitting.
-Each of these sets contains pairs of an input instance and the correct label.
+A dataset for supervised training typically consists of two separate sets of images, one for training the model and one to test its generalization to unseen inputs to avoid overfitting.
+Each of these sets contains pairs of an input instance and the associated labels.
 In this paper, we focus on the image classification problem, where given an image, the neural network shall correctly determine the class depicted in the image.
-Training pairs, thus, consist of an image and pictured class.
+Training pairs, thus, consist of an image and the associated class.
+Consequently, we use the terms ``label'' and ``class'' synonymously in the following.
+When training a model, we adjust model such that it assigns the correct labels to an input image.
 
 Neural networks consist of multiple neurons.
 A neuron has some weighted connections, for example to previous neurons, with weights $w$ and a bias $b$.
@@ -176,32 +173,32 @@ The input data---for example, the pixel values of a training image---is passed t
 The network output is encoded in the last layer's output.
 %
 In \emph{deep learning}, the number of different layers is high.
-This enables the model to learn hierarchical features from the raw input data instead of using hand-crafted features \cite{chilimbi2014-Project-Adam}.
+This enables the model to learn hierarchical features from the raw input data instead of using hand-crafted features~\cite{chilimbi2014-Project-Adam}.
 %
 There are different types of layers, depending on how the neurons are connected to the previous layer.
 In computer vision and image classification, the most important types of layers are fully-connected layers, convolutional layers, and pooling layers.
 
 In \emph{fully-connected layers}, each neuron of the first layer is connected to each neuron in the second layer.
-These layers consist of many connections which result in numerous parameters.
-Fully-connected layers are typically used to determine the image class once the features have been extracted.
+These layers consist---as their name suggests---of a fully-connected mesh of connections which results in a substantial amount parameters.
+Fully-connected layers are typically used as final layers of the model, predicting the actual class once the features have been extracted.
 
-\emph{Convolutional layers} are based on the convolutional filtering used in digital image processing, for example, in the Gaussian blur filter or edge detection filters like Sobel or Prewitt \cite{Stockman:2001:CV:558008}.
-They use prior knowledge, for example, a hierarchy in the image features \cite{lecun2010convolutional}, to reduce the number of parameters.
+\emph{Convolutional layers} are based on the convolutional filtering used in digital image processing, for example, in the Gaussian blur filter or edge detection filters like Sobel and Prewitt~\cite{Stockman:2001:CV:558008}.
+% They use prior knowledge, for example, a hierarchy in the image features~\cite{lecun2010convolutional}, to reduce the number of parameters.
 Convolutional layers consist of a small filter---usually between 3x3 and 7x7 pixels---that is shifted over the image.
-At each pixel, the weighted sum of its surrounding pixels is computed and passed to the activation function.
-Instead of connecting individual neurons with weighted connections, the filter weights are therefore reused for each pixel.
+At each pixel, the weighted sum of its surrounding pixels and the kernel is computed and passed to the activation function.
+Instead of connecting individual neurons with weighted connections, the kernel weights are therefore reused for all pixels.
 This reduces the number of parameters significantly, which in turn speeds up the training.
-Convolutional layers are often used as features extractors together with pooling layers \cite{lecun2010convolutional}.
+Convolutional layers are often used as features extractors together with pooling layers~\cite{lecun2010convolutional}.
 
 \emph{Pooling layers} aggregate adjacent pixels to a single output pixel using either the sum, the average or the maximum of the pooled pixels.
 Similarly to convolutional layers, the pooling operation is shifted over the image and repeatedly applied to the different parts of the image.
-Pooling layers reduce the spatial size of the input image and generally improve the model's robustness to noise and clutter in the input \cite{lecun2010convolutional,chilimbi2014-Project-Adam}.
+Pooling layers reduce the spatial size of the input image and generally improve the model's robustness to noise and clutter in the input~\cite{lecun2010convolutional,chilimbi2014-Project-Adam}.
 
 A \emph{loss function} is used to evaluate the accuracy of the model by comparing the network's output to the actual, expected output.
 Different loss functions for different types of problems exist.
 For image classification, a typical loss function is the cross-entropy loss.
 %
-In general, neural networks can be thought of as ``large parameterized function[s]'' \cite{paine2013-GPU-async-SGD} where all the weights and biases are model parameters that can be modified to improve the accuracy.
+In general, neural networks can be thought of as ``large parameterized function[s]''~\cite{paine2013-GPU-async-SGD} where all the weights and biases are model parameters that can be modified to improve the accuracy.
 When training a neural network, we aim to minimize the loss by adjusting its parameters.
 
 A widely used optimization strategy for training neural networks is \emph{stochastic gradient descent (SGD)}. % TODO cite?
@@ -214,7 +211,7 @@ Instead of computing the gradient over the entire training set at once, SGD part
 For each batch, we compute an averaged gradient using backpropagation and update the model parameters accordingly.
 %
 A \emph{training epoch} consists of processing each batch in the training set once.
-Usually, multiple epochs---that is multiple passes through the training set---are required to train a neural network to convergence \cite{chilimbi2014-Project-Adam}.
+Usually, multiple epochs---that is multiple passes through the training set---are required to train a neural network to convergence~\cite{chilimbi2014-Project-Adam}.
 
 There are many different hyper-parameters to tune the neural network and its training.
 In this paper, only the \emph{batch size}, that is the number of training instances per batch, is of importance.
@@ -222,13 +219,14 @@ A larger batch size generally reduces the training time per epoch while increasi
 As we will see in \autoref{sec:parallelizing_neural_networks} and \ref{sec:experimental_results}, the batch size can also affect the scalability of some parallelization techniques.
 
 Nowadays, many implementations of neural networks utilize the processing power of \emph{graphic processing units (GPUs)} to speed up the training.
-GPUs are heavily parallel and use more pipelining than CPUs \cite{oh2004gpu}.
-They excel at performing the same operation many times---for example, on many different inputs \cite{oh2004gpu}.
-When training neural networks, instead of computing the weighted sums individually for each neuron, multiple neurons can be processed together using matrix multiplication \cite{oh2004gpu}.
-This matrix multiplication can be computed very efficiently on the GPU.
-Training neural networks on a GPU is thus often twenty-times faster than on a CPU \cite{oh2004gpu,strigl2010performance}.
+GPUs are heavily parallel and use more pipelining than CPUs~\cite{oh2004gpu}.
+In general, they perform in SIMD mode---that is, applying a single instruction to multiple inputs.
+This makes GPUs very suited for vector processing.
+%
+When training neural networks, instead of computing the weighted sums individually for each neuron, multiple neurons can be processed together using matrix multiplication, which can then be computed very efficiently on the GPU~\cite{oh2004gpu}.
+Training neural networks on a GPU is thus often orders of magnitude faster than on a CPU~\cite{oh2004gpu,strigl2010performance}.
 
-The MPI message passing interface \cite{walker1996mpi} defines a set of operations to communicate between different processes by sending messages.
+The \emph{MPI message passing interface}~\cite{walker1996mpi} defines a set of operations to communicate between different processes by sending messages.
 This includes blocking and non-blocking point-to-point communication and multiple collective operations for groups of processes.
 In this paper, we require only the all-reduce operation.
 Each process in the communication group holds some value to be aggregated.
@@ -238,54 +236,54 @@ All-reduce collects these value, aggregates them using, for example, a sum funct
 
 \section{Related Work} % (fold)
 \label{sec:related_work}
-A general overview of different parallelization techniques in the time between 1995 and 2011 is presented by Upadhyaya \cite{upadhyaya2013parallel}.
+A general overview of different parallelization techniques in the time between 1995 and 2011 is presented by Upadhyaya~\cite{upadhyaya2013parallel}.
 %
 % Single-Node parallelism for computer vision networks
-Single-node parallelization strategies include \emph{Hogwild} \cite{recht2011-Hogwild}, a shared memory implementation of SGD by Niu et al., which in contrast to previous approaches does not rely on locking.
+Single-node parallelization strategies include \emph{Hogwild}~\cite{recht2011-Hogwild}, a shared memory implementation of SGD by Niu et al., which in contrast to previous approaches does not rely on locking.
 The authors argue that, since many neural networks are sparse, the chance of different processors overwriting each other's progress is so small that it does not affect the convergence of the network.
 %
-Jiang et al. \cite{jiang2018-FiLayer} introduce \emph{FiLayer}, a single-node parallelization that can be used in addition to model and data parallelism.
+Jiang et al.~\cite{jiang2018-FiLayer} introduce \emph{FiLayer}, a single-node parallelization that can be used in addition to model and data parallelism.
 Their inter-layer parallelization uses a pipeline-based processing of the different network layers, whereas their intra-layer approach parallelizes the computation of a single convolutional layer.
 
 % Distributed parallelism for computer vision networks
-An influential work on distributed training of neural networks is Google’s \emph{DistBelief} framework introduced by Dean et al. \cite{dean2012-Large-scale-distributed}.
+An influential work on distributed training of neural networks is Google’s \emph{DistBelief} framework introduced by Dean et al.~\cite{dean2012-Large-scale-distributed}.
 DistBelief uses model and data parallelism for large-scale distributed training of deep neural networks.
 They are able to train significantly larger models than before by utilizing tens of thousands of CPU cores.
 Their \emph{Downpour SGD} is based on an asynchronous approach to data parallelism using a central parameter server.
 %
-Paine et al. \cite{paine2013-GPU-async-SGD} propose a variant of DistBelief's Downpour SGD using GPUs instead of CPUs.
+Paine et al.~\cite{paine2013-GPU-async-SGD} propose a variant of DistBelief's Downpour SGD using GPUs instead of CPUs.
 To reduce the overhead of GPU-CPU data-transfer, workers only communicated with the parameter server every n-th step instead of after each optimization step.
 
 Multiple other algorithms based on a data parallel approach have been developed.
 %
-For example, \emph{Elastic averaging SGD}, developed by Zhang et al. \cite{zhang2015-Elastic-AvgSGD}, reduces the communication overhead between the workers and the server compared to the standard parameter server approach.
+For example, \emph{Elastic averaging SGD}, developed by Zhang et al.~\cite{zhang2015-Elastic-AvgSGD}, reduces the communication overhead between the workers and the server compared to the standard parameter server approach.
 It, furthermore, speeds up the convergence by enabling more exploration and allowing more divergence in the worker parameters.
 %
-Jin et al. \cite{jin2016-How-to-scale} introduce a new asynchronous, data parallel training algorithm called \emph{gossiping SGD}.
-They compare gossiping SGD to both synchronous SGD using all-reduce and asynchronous, elastic averaging SGD \cite{zhang2015-Elastic-AvgSGD}.
-They conclude that asynchronous methods converge faster for large step sizes and up to 32 nodes, while synchronous SGD converges faster when using more nodes or smaller steps \cite{jin2016-How-to-scale}.
+Jin et al.~\cite{jin2016-How-to-scale} introduce a new asynchronous, data parallel training algorithm called \emph{gossiping SGD}.
+They compare gossiping SGD to both synchronous SGD using all-reduce and asynchronous, elastic averaging SGD~\cite{zhang2015-Elastic-AvgSGD}.
+They conclude that asynchronous methods converge faster for large step sizes and up to 32 nodes, while synchronous SGD converges faster when using more nodes or smaller steps~\cite{jin2016-How-to-scale}.
 %
-For synchronous SGD, Chen et al. \cite{chen2016-Revisiting-distributed-synchronous-SGD} develop an improved version which outperforms previous asynchronous approaches by mitigating the straggler effect with backup workers.
+For synchronous SGD, Chen et al.~\cite{chen2016-Revisiting-distributed-synchronous-SGD} develop an improved version which outperforms previous asynchronous approaches by mitigating the straggler effect with backup workers.
 %
-With \emph{FireCaffe}, Iandola et al. \cite{iandola2016-Firecaffe} present a multi-GPU implementation of data parallelism focused on reducing the communication overhead.
+With \emph{FireCaffe}, Iandola et al.~\cite{iandola2016-Firecaffe} present a multi-GPU implementation of data parallelism focused on reducing the communication overhead.
 They compare different communication algorithms and find that reduction trees outperform the parameter server approach regarding efficiency and scalability.
 Additionally, they note that a larger batch size can improve the scalability even further.
 
-Focusing on model parallelism, Coates et al. \cite{coates2013-DL-COTS-HPC} investigate training on Commodity Off-The-Shelf High-Performance Computing (COTS HPC) systems consisting of a cluster of GPUs.
+Focusing on model parallelism, Coates et al.~\cite{coates2013-DL-COTS-HPC} investigate training on Commodity Off-The-Shelf High-Performance Computing (COTS HPC) systems consisting of a cluster of GPUs.
 They provide several solutions to the challenges induced by this infrastructure, such as communications bottlenecks and the more complicated design necessary to arrange training on many GPUs.
 
 Both model and data parallelism are also frequently combined to hybrid techniques.
-For example, Krizhevsky \cite{krizhevsky2014-One-weird-trick} proposes to use data parallelism in the convolutional layers and model parallelism in the fully-connected layers of a single convolutional neural network.
+For example, Krizhevsky~\cite{krizhevsky2014-One-weird-trick} proposes to use data parallelism in the convolutional layers and model parallelism in the fully-connected layers of a single convolutional neural network.
 %
-Furthermore, Das et al. \cite{das2016-Distributed-deep-learning} provide an optimized implementation of single-node, synchronous SGD and extend this to a distributed, multi-node version using a hybrid approach of both model and data parallelism.
+Furthermore, Das et al.~\cite{das2016-Distributed-deep-learning} provide an optimized implementation of single-node, synchronous SGD and extend this to a distributed, multi-node version using a hybrid approach of both model and data parallelism.
 Unlike many other implementations, they do not alter hyper-parameters such as the mini-batch size or learning rate.
 
 % Speech DNNs
 There have also been several attempts at parallelizing deep neural networks for speech processing.
-However, they generally scale significantly worse than the typical CNNs used in computer vision due to the higher amount of fully-connected layers \cite{dean2012-Large-scale-distributed,seide2014-Speech-DNNs}.
-Seide et al. \cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic} investigate parallelizing these types of networks using both model and data parallelism.
-They focus on adjusting the learning rate and mini-batch size \cite{seide2014-Speech-DNNs} and reducing the amount of communicated data \cite{seide2014-1-bit-stochastic} to improve the scalability.
-Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can only be reached by fundamentally changing and parallelizing the underlying training algorithm instead of merely applying model or data parallelism \cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic}.
+However, they generally scale significantly worse than the typical CNNs used in computer vision due to the higher amount of fully-connected layers~\cite{dean2012-Large-scale-distributed,seide2014-Speech-DNNs}.
+Seide et al.~\cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic} investigate parallelizing these types of networks using both model and data parallelism.
+They focus on adjusting the learning rate and mini-batch size~\cite{seide2014-Speech-DNNs} and reducing the amount of communicated data~\cite{seide2014-1-bit-stochastic} to improve the scalability.
+Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can only be reached by fundamentally changing and parallelizing the underlying training algorithm instead of merely applying model or data parallelism~\cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic}.
 
 % section related_work (end)
 
@@ -294,7 +292,7 @@ Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can 
 This section gives an overview of the different algorithms used for distributed training of neural networks.
 There are two main parallelization approaches for neural networks: model and data parallelism.
 Data parallelism can be divided further into synchronous and asynchronous approaches.
-Moreover, model and data parallelism can be combined to hybrid approaches to utilize both techniques as demonstrated, for example, by \cite{krizhevsky2014-One-weird-trick,das2016-Distributed-deep-learning}.
+Moreover, model and data parallelism can be combined to hybrid approaches to utilize both techniques as demonstrated, for example, by~\cite{krizhevsky2014-One-weird-trick,das2016-Distributed-deep-learning}.
 
 \subsection{Model Parallelism} % (fold)
 \label{sub:model_parallelism}
@@ -305,40 +303,39 @@ Moreover, model and data parallelism can be combined to hybrid approaches to uti
 In model parallelism, the neural network is partitioned into multiple components.
 These model components can then be distributed across multiple machines and trained in parallel.
 They are linked by the connections between neurons in different components.
-During training, the output from one component is communicated to the next along these connections \cite{dean2012-Large-scale-distributed}.
-\autoref{fig:model_parallelism} by Dean et al. \cite{dean2012-Large-scale-distributed} gives an example of this process.
+During training, the output from one component is communicated to the next along these connections~\cite{dean2012-Large-scale-distributed}.
+\autoref{fig:model_parallelism} by Dean et al.~\cite{dean2012-Large-scale-distributed} gives an example of this process.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=2.5in]{images/model-parallelism}
 \caption{
-A schematic illustration by Dean et al. \cite{dean2012-Large-scale-distributed} of partitioning a neural network to distribute it for model parallelism.
+A schematic illustration by Dean et al.~\cite{dean2012-Large-scale-distributed} of partitioning a neural network to distribute it for model parallelism.
 The connections printed in bold cross between two model parts.
 These are the connections, along which communication is required.
-Image source: \cite{dean2012-Large-scale-distributed}.
 }
 \label{fig:model_parallelism}
 \end{figure}
 
-Since we communicate neuron outputs, model parallelism generally scales best when the amount of computation per neuron is high \cite{krizhevsky2014-One-weird-trick}.
-This is typically the case in fully-connected layers \cite{krizhevsky2014-One-weird-trick}.
-However, fully-connected layers generally require more communication, as they produce more connections between the model components than models with more ``local connectivity structures'' \cite{dean2012-Large-scale-distributed}.
+Since we communicate neuron outputs, model parallelism generally scales best when the amount of computation per neuron is high~\cite{krizhevsky2014-One-weird-trick}.
+This is typically the case in fully-connected layers~\cite{krizhevsky2014-One-weird-trick}.
+However, fully-connected layers generally require more communication, as they produce more connections between the model components than models with more ``local connectivity structures''~\cite{dean2012-Large-scale-distributed}.
 
 % Advantages
 By using more machines---and thus more cores and more memory---model parallelism can substantially reduce the training time.
-For example, Dean et al. were able to train large models with significant speedups using up to 144 partitions \cite{dean2012-Large-scale-distributed}.
+For example, Dean et al. were able to train large models with significant speedups using up to 144 partitions~\cite{dean2012-Large-scale-distributed}.
 %
-Additionally, model parallelism reduces the required memory per machine \cite{dean2012-Large-scale-distributed}.
+Additionally, model parallelism reduces the required memory per machine~\cite{dean2012-Large-scale-distributed}.
 The model, including all its parameters, is partitioned and distributed over multiple machines.
 Thus, each machine only needs to store its assigned part of the model and the corresponding parameters.
 %
 This can be a crucial advantage as some models are too large to fit in the memory of a single machine.
-It is especially beneficial on GPUs since they typically offer significantly less memory than CPUs and transferring data from the CPU can pose a severe bottleneck \cite{dean2012-Large-scale-distributed}.
-The available memory is thus often a limiting factor to the model size on GPUs \cite{dean2012-Large-scale-distributed,chilimbi2014-Project-Adam}.
+It is especially beneficial on GPUs since they typically offer significantly less memory than CPUs and transferring data from the CPU can pose a severe bottleneck~\cite{dean2012-Large-scale-distributed}.
+The available memory is thus often a limiting factor to the model size on GPUs~\cite{dean2012-Large-scale-distributed,chilimbi2014-Project-Adam}.
 Using model parallelism, this restriction can be mitigated, and larger models can be trained using multiple GPUs.
 
 There are, however, also some challenges to model parallelism:
-If the required time differs greatly between the machines, faster machines might need to wait a lot for slower machines, which can decrease the obtainable speedup \cite{dean2012-Large-scale-distributed}.
+If the required time differs greatly between the machines, faster machines might need to wait a lot for slower machines, which can decrease the obtainable speedup~\cite{dean2012-Large-scale-distributed}.
 Additionally, the communication time can introduce a significant overhead, especially if the number of connections between the model components is high.
 
 % subsection model_parallelism (end)
@@ -353,37 +350,37 @@ In data parallelism, each machine has its own copy of the neural network.
 Instead of partitioning the model, data parallelism partitions the training data and distributes it across different machines.
 Each machine then processes its assigned training instances and computes local gradients.
 To keep the model copies consistent over all machines, the gradients are communicated between the processes.
-Instead of communicating and aggregating the gradients, it is also possible to first apply local parameter updates, followed by synchronizing these parameters between the processes.
+Instead of communicating and aggregating the gradients, it is also possible to first apply local parameter updates, followed by parameter synchronization between the processes.
 %
-Data parallelism is generally more efficient if the computation per weight is high, as the model parameters (or gradients) are what is communicated \cite{krizhevsky2014-One-weird-trick}.
-High computation per parameter is very typical for convolutional layers where the kernel weights are reused for all input pixels \cite{krizhevsky2014-One-weird-trick}.
+Data parallelism is generally more efficient if the computation per weight is high, as the model parameters (or gradients) are communicated.
+High computation per parameter is very typical for convolutional layers where the kernel weights are reused for all input pixels.
 %
 An important hyper-parameter for data parallelism is the batch size.
-Since the gradients are usually communicated once per batch, we can reduce the required communication by decreasing the number of batches, that is increasing the batch size \cite{krizhevsky2014-One-weird-trick}.
-According to Krizhevsky, data parallelism can be ``arbitrarily efficient'' with a large enough batch size \cite{krizhevsky2014-One-weird-trick}.
+Since the gradients are usually communicated once per batch, we can reduce the required communication by decreasing the number of batches, that is increasing the batch size.
+According to Krizhevsky, data parallelism can be ``arbitrarily efficient'' with a large enough batch size~\cite{krizhevsky2014-One-weird-trick}.
 
-There are many different algorithms for synchronizing the model parameters and communicating the gradients.
+There are several different algorithms to synchronize the model parameters and communicate the gradients.
 Depending on the communication pattern, they can be divided into synchronous or asynchronous techniques.
 Both approaches are described in the following.
 
 \subsubsection{Synchronous Data Parallelism} % (fold)
 \label{ssub:synchronous_data_parallelism}
-Synchronous approaches---using, for example, synchronous SGD---usually consist of two phases alternated in lockstep \cite{jin2016-How-to-scale}.
+Synchronous approaches---using, for example, synchronous SGD---usually consist of two phases alternated in lockstep~\cite{jin2016-How-to-scale}.
 In the first phase, each machine processes its assigned training instances and computes a local gradient.
 In the second phase, these local gradients are then aggregated using synchronous communication.
 Typically, this communication is performed via an MPI all-reduce operation, which collects all local gradients and re-distributes an aggregated gradient to all processes.
 
 This communication pattern introduces a synchronization barrier in each second phase, where all processes have to wait for each other.
-As stated by Jin et al., this synchronization barrier actually makes up the majority of the communication overhead on modern networks \cite{jin2016-How-to-scale}.
+As stated by Jin et al., this synchronization barrier actually makes up the majority of the communication overhead on modern networks~\cite{jin2016-How-to-scale}.
 It also introduces several problems:
-Synchronous SGDs are prone to a straggler effect meaning ``the slowest nodes prevent the rest from making progress'' \cite{jin2016-How-to-scale}.
-They are also ``not robust in the face of failing processors or nodes'' \cite{jin2016-How-to-scale} since the all-reduce operation cannot complete with any missing processes.
-Additionally, synchronous SGDs might under-utilize the compute-resources when much of the training time is spent waiting for other processes \cite{jin2016-How-to-scale}.
+Synchronous SGDs are prone to a straggler effect meaning ``the slowest nodes prevent the rest from making progress''~\cite{jin2016-How-to-scale}.
+% They are also ``not robust in the face of failing processors or nodes''~\cite{jin2016-How-to-scale} since the all-reduce operation cannot complete with any missing processes.
+Additionally, synchronous SGDs might under-utilize the compute-resources when much of the training time is spent waiting for other processes~\cite{jin2016-How-to-scale}.
 
-Due to the aforementioned disadvantages, synchronous SGD is often believed to be inferior to asynchronous approaches \cite{chen2016-Revisiting-distributed-synchronous-SGD}.
+Due to the aforementioned disadvantages, synchronous SGD is often believed to be inferior to asynchronous approaches~\cite{chen2016-Revisiting-distributed-synchronous-SGD}.
 However, some recent developments demonstrate synchronous SGDs outperforming asynchronous algorithms:
-For example, Jin et al. find that on more than $32$ nodes synchronous SGDs scales better than their asynchronous Gossiping-SGD \cite{jin2016-How-to-scale}.
-Chen et al. demonstrate their improved synchronous SGDs with additional backup workers offers faster convergence with better accuracy than the compared asynchronous training \cite{chen2016-Revisiting-distributed-synchronous-SGD}.
+For example, Jin et al. find that on more than $32$ nodes synchronous SGDs scales better than their asynchronous Gossiping-SGD~\cite{jin2016-How-to-scale}.
+Chen et al. demonstrate their improved synchronous SGDs with additional backup workers offers faster convergence with better accuracy than the compared asynchronous training~\cite{chen2016-Revisiting-distributed-synchronous-SGD}.
 
 % subsubsection synchronous_data_parallelism (end)
 
@@ -398,35 +395,34 @@ The \emph{parameters server} contains the most recent consensus of the model par
 Multiple \emph{workers} process the training data in parallel and compute local gradients.
 However, instead of communicating directly with other workers, the local gradients are sent to the parameter server, which receives them and updates its model parameters accordingly.
 The worker processes periodically fetch the latest parameters from the server to update their copy of the model.
-This process is also illustrated in \autoref{fig:parameter_server} by Dean et al. \cite{dean2012-Large-scale-distributed}.
+This process is also illustrated in \autoref{fig:parameter_server} by Dean et al.~\cite{dean2012-Large-scale-distributed}.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=2.5in]{images/parameter-server.pdf}
 \caption{
-A schematic illustration of a parameter server by Dean et al. \cite{dean2012-Large-scale-distributed}.
+A schematic illustration of a parameter server by Dean et al.~\cite{dean2012-Large-scale-distributed}.
 The parameter server receives gradients $\delta w$ from the workers and applies them to its model parameters.
 Workers can fetch parameters $w$ from the server to update their local model replicas.
 Each worker has its own share of the training data---labeled as data shards in this diagram---which it uses to compute the local gradients.
-Image source: \cite{dean2012-Large-scale-distributed}.
 }
 \label{fig:parameter_server}
 \end{figure}
 
 There are different approaches at which times communication takes place.
-The simplest approach, as described by Dean et al., is sending a gradient and fetching parameters after every mini-batch---that is, the subset of a batch assigned to this worker \cite{dean2012-Large-scale-distributed}.
+The simplest approach, as described by Dean et al., is sending a gradient and fetching parameters after every mini-batch---that is, the subset of a batch assigned to this worker~\cite{dean2012-Large-scale-distributed}.
 They also suggest reducing the commutation by increasing this interval to multiple batches.
-The interval for sending gradients and fetching parameters are not required to be equal \cite{dean2012-Large-scale-distributed}.
+The interval for sending gradients and fetching parameters are not required to be equal~\cite{dean2012-Large-scale-distributed}.
 
 Since the workers only communicate with the parameter server and never with other workers, they are independent of each other.
 There is, thus, no synchronization barrier.
 However, asynchronous gradient descent can have its own problems:
-Since all workers communicate all-to-one with the parameter server, a communication bottleneck at the parameter server can occur, while other parts of the network might be underutilized \cite{jin2016-How-to-scale}.
-Furthermore, the convergence can be worse than for synchronous approaches since the workers usually have a slightly outdated copy of the model \cite{jin2016-How-to-scale,chen2016-Revisiting-distributed-synchronous-SGD}.
+Since all workers communicate all-to-one with the parameter server, a communication bottleneck at the parameter server can occur, while other parts of the network might be underutilized~\cite{jin2016-How-to-scale}.
+Furthermore, the convergence can be worse than for synchronous approaches since the workers usually have a slightly outdated copy of the model~\cite{jin2016-How-to-scale,chen2016-Revisiting-distributed-synchronous-SGD}.
 This effect is amplified when the communication delay is increased.
 
-Multiple different variations of the classical parameter server approach have been developed, such as Elastic Averaging SGD by Zhang et al. \cite{zhang2015-Elastic-AvgSGD} and Gossiping SGD by Jin et al. \cite{jin2016-How-to-scale}.
-There are also approaches eliminating the global parameter server altogether, like Sergeev et al., who utilize ring-all-reduce operations in their Horovod library to overcome the need for a parameter server \cite{sergeev2018horovod}.
+Multiple different variations of the classical parameter server approach have been developed, such as Elastic Averaging SGD by Zhang et al.~\cite{zhang2015-Elastic-AvgSGD} and Gossiping SGD by Jin et al.~\cite{jin2016-How-to-scale}.
+There are also approaches eliminating the global parameter server altogether, like Sergeev et al., who utilize ring-all-reduce operations in their Horovod library to overcome the need for a parameter server~\cite{sergeev2018horovod}.
 
 % subsubsection asynchronous_data_parallelism (end)
 
@@ -439,22 +435,22 @@ There are also approaches eliminating the global parameter server altogether, li
 
 \section{Implementation} % (fold)
 \label{sec:implementation}
-We implement and evaluate a synchronous, data parallel training using MPI all-reduce to communicate and aggregate the gradients between different processes.
-Synchronous SGDs can scale comparably well or even better than asynchronous approaches as demonstrated by \cite{jin2016-How-to-scale,chen2016-Revisiting-distributed-synchronous-SGD} and are additionally significantly easier to implement.
+We implemented and evaluated a synchronous, data parallel training using MPI all-reduce to communicate and aggregate the gradients between different processes.
+Synchronous SGDs can scale comparably well or even better than asynchronous approaches as demonstrated by~\cite{jin2016-How-to-scale,chen2016-Revisiting-distributed-synchronous-SGD} and are additionally significantly easier to implement.
 
-The training is implemented in Python v3.6.6 with PyTorch v1.1.0 \cite{paszke2017automatic}, Torchvision v0.3.0, and Numpy v1.16.4.
+The training is implemented in Python v3.6.6 with PyTorch v1.1.0~\cite{paszke2017automatic}, Torchvision v0.3.0, and Numpy v1.16.4.
 On the GPU, CUDA v10.0 is used for computation.
 For communication, we use OpenMPI v3.1 with the python wrapper MPI4Py v3.0.2.
 The datasets were converted to HDF5 format using HDF5 v1.10 (on ForHLR II) and v1.8.12 (on LSDF) and are read via H5Py v2.9.0.
 The code is available at \url{https://github.com/fluegelk/ATPC-Data-parallel-Training-of-Neural-Networks}.
 
 We evaluated our implementation on two different machines:
-The \emph{LSDF} server consists of two Intel Xeon E5-2630 v3 processors running at 2.40 – 3.20~GHz with eight cores each and two threads per core.
+The \emph{LSDF} server consists of two Intel Xeon E5-2630 v3 processors running at 3.20~GHz with eight cores each and two threads per core.
 Additionally, LSDF contains four NVIDIA Tesla K80 GPU, each offering 4992 NVIDIA CUDA cores and 24~GB of GDDR5 memory.
 %
 We, furthermore, used Intel Xeon E5-2660 v3 processors on the HPC-system \emph{ForHLR II}
-\footnote{A more detailed description of ForHLR II is given at \url{https://www.scc.kit.edu/dienste/forhlr2.php} (only available in German).}.
-Each processor runs at 2.60 – 3.30~GHz and consists of ten cores per processor and two threads per core.
+\footnote{A more detailed description of ForHLR II is given at \url{https://www.scc.kit.edu/dienste/forhlr2.php} (only available in German, accessed at 2019-07-31 9:15 UTC).}.
+Each processor runs at 3.30~GHz and consists of ten cores per processor and two threads per core.
 %
 Both machines use Red Hat Enterprise Linux 7 as operating system.
 
@@ -474,16 +470,16 @@ Finally, \autoref{sub:speedup} examines the speedups reached by the implementati
 \label{sub:methodology}
 
 We test our implementation with two CNNs:
-\emph{LeNet5} \cite{lecun1998gradient} consists of three convolutional layers, two maximum pooling layers, and two fully-connected layers.
-\emph{TorchNet}\footnote{See \url{https://pytorch.org/tutorials/beginner/blitz/neural_networks_tutorial.html\#define-the-network}} consists of two convolutional layers, two maximum pooling layers, and three fully-connected layers.
+\emph{LeNet5}~\cite{lecun1998gradient} consists of three convolutional layers, two maximum pooling layers, and two fully-connected layers.
+\emph{TorchNet}\footnote{See \url{https://pytorch.org/tutorials/beginner/blitz/neural_networks_tutorial.html\#define-the-network} (accessed at 2019-07-31 9:15 UTC)} consists of two convolutional layers, two maximum pooling layers, and three fully-connected layers.
 
-These models are trained on the image classification datasets \emph{MNIST} \cite{lecun1998gradient} and \emph{CIFAR10} \cite{krizhevsky2009CIFAR10}.
+These models are trained on the image classification datasets \emph{MNIST}~\cite{lecun1998gradient} and \emph{CIFAR10}~\cite{krizhevsky2009CIFAR10}.
 MNIST contains 60,000 training images and 10,000 test images of handwritten digits.
 CIFAR10 consists of 50,000 training images and 10,000 test images for ten different classes such as cat, airplane, or bird.
 
 We use a learning rate of $0.001$ and a Nesterov momentum of $0.9$ for all experiments.
-This is equal to the values used by Jin et al. in \cite{jin2016-How-to-scale}.
-In contrast to some other publications, like \cite{jin2016-How-to-scale}, we do not adjust the learning rate during the training.
+This is equal to the values used by Jin et al. in~\cite{jin2016-How-to-scale}.
+In contrast to some other publications, like~\cite{jin2016-How-to-scale}, we do not adjust the learning rate during the training.
 %
 The training data is divided into batches with batch sizes between $16$ and $512$.
 When training in parallel, batches are divided equally amongst all processes.
@@ -517,8 +513,7 @@ While smaller batch sizes achieve a good validation loss of $0.5$ or less within
 \centering
 \includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-epochs--MNIST}
 \caption{The validation loss after each epoch for different batch sizes using sequential training, LeNet5, and MNIST.
-As expected, the smaller the batch size, the faster is the model's convergence.
-However, at the same time, a larger batch size speeds up the training time per epoch as can be seen in \autoref{fig:loss_by_time}.}
+As expected, the smaller the batch size, the fewer epochs are required for convergence.}
 \label{fig:loss_by_epoch}
 \end{figure}
 
@@ -532,13 +527,12 @@ However, for larger batch sizes, the validation loss is visibly higher, as the r
 \centering
 \includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-time-and-bs--MNIST}
 \caption{The validation loss by training time for different batch sizes using sequential training, LeNet5, and MNIST.
-This figure is related to \autoref{fig:loss_by_epoch} to the extent that the same data is displayed---once per epoch and once per training time.
-Displaying the loss by time demonstrates how larger batch sizes result in faster epochs but selecting too large batch sizes can compromise the convergence.}
+This figure demonstrates the trade-off where smaller batch sizes result in faster convergence per epoch but require more time per epoch.}
 \label{fig:loss_by_time}
 \end{figure}
 
 For data parallelism, we generally try to increase the batch size as far as possible without losing too much quality.
-Theoretically, the data parallel scalability can be arbitrarily high by using larger and larger batch sizes \cite{krizhevsky2014-One-weird-trick} as a higher batch size improves the scalability.
+Theoretically, the data parallel scalability can be arbitrarily high by using larger and larger batch sizes~\cite{krizhevsky2014-One-weird-trick} as a higher batch size improves the scalability.
 % We revisit this impact of the batch size on the scalability when discussing the speedup in \autoref{sub:speedup}. % TODO do this!
 
 % subsection impact_of_the_batch_size (end)
@@ -702,7 +696,7 @@ When comparing different batch sizes, we can confirm the established notion that
 We observe several interesting communication effects that raise further questions.
 On the GPU, we measure a decrease in communication when using more GPUs, an effect we cannot fully explain at the moment, but which might be attributed to PCI-E piggybacking in the GPU-CPU-communication.
 Furthermore, on ForHLR II, we observe a significant increase in communication for more than four processes.
-This might partially be explained by the NUMA architecture; however, NUMA should not cause delays that extreme.
+%This might partially be explained by the NUMA architecture; however, NUMA should not cause delays that extreme.
 
 Altogether, a more detailed evaluation than what is possible in this seminar would be necessary to investigate the observed effects thoroughly.
 There are several aspects that could be considered in the future.
@@ -713,7 +707,7 @@ The current experiments are limited to a small set of models and datasets.
 Testing it on other types of CNNs, using larger training sets or even other types of computer vision task might give further insight into the scalability of data parallel training and establish the usability for a wider array of applications.
 %
 Finally, one could investigate parallelizing other areas of neural network applications.
-There have, for example, been multiple works showing that networks for speech processing are significantly harder to parallelize and scale than computer vision models \cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic,dean2012-Large-scale-distributed}.
+There have, for example, been multiple works showing that networks for speech processing are significantly harder to parallelize and scale than computer vision models~\cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic,dean2012-Large-scale-distributed}.
 
 
 % summarize contributions, reference to introduction/abstract
@@ -726,8 +720,8 @@ There have, for example, been multiple works showing that networks for speech pr
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,references}
 
-\vfill\null
-\newpage
+% \vfill\null
+% \newpage
 
 \appendix[Additional Experimental Results]
 We also evaluated our implementation using the TorchNet model and CIFAR10 dataset.
@@ -738,23 +732,25 @@ We observe that MNIST requires fewer epochs than CIFAR10 to converge and reaches
 No significant difference between the two models, LeNet5 and TorchNet, is visible.
 Since they a fairly similar architecture, this is somewhat expected.
 
+% \vspace{-2mm}
 \begin{figure}[ht]
 \centering
 \includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-model-and-dataset--bs-256}
-\caption{The sequential validation loss per epoch when training the CNNs LeNet5 and TorchNet on the datasets MNIST and CIFAR10.
-Training on MNIST requires significantly fewer epochs than CIFAR10 while also achieving higher overall accuracy.
-There is no drastic difference between the two models.
-In general, LeNet5 performs slightly better in the first few epochs, but TorchNet achieves higher final accuracy.}
+\caption{The sequential validation loss per epoch.
+Training on the MNIST dataset requires significantly fewer epochs than CIFAR10 while also achieving higher overall accuracy.
+For the models, LeNet5 generally performs slightly better in the first few epochs, while TorchNet achieves higher final accuracy.}
 \label{fig:validation_loss_model_dataset}
 \end{figure}
+% \vspace{-1mm}
 
 The speedup per epoch is given in \autoref{fig:speedup_model_dataset}.
 All four tested model-dataset combination scale similarly well.
 The observations made in \autoref{sec:experimental_results} for LeNet5 and MNIST are therefore also applicable to TorchNet and CIFAR10.
+% \vspace{-2mm}
 
-\begin{figure}[ht]
+\begin{figure}[!ht]
 \centering
-\includegraphics[width=2.5in]{../evaluation/diagrams-paper/speedup-all--bs-256}
+\includegraphics{../evaluation/diagrams-paper/speedup-all--bs-256}
 \caption{The speedup and efficiency per epoch on the GPU using all combinations of the two models and datasets with batch size 256.
 All four variants demonstrate very similar parallel behavior.}
 \label{fig:speedup_model_dataset}
