@@ -150,10 +150,12 @@ Finally, \autoref{sec:conclusion} summarizes our results and gives an outlook on
 \label{sec:preliminaries}
 This section gives a short introduction to machine learning using convolutional neural networks, defining all necessary concepts used in the remainder of this paper.
 More in-depth information can, for example, be found in \cite{goodfellow2016-DeepLearningBook}.
+Additionally, we give a brief overview of GPU-accelerated training of neural networks and MPI.
 
-A dataset typically consists of two separate sets of images, one for training the network and one to test its accuracy on unseen inputs and to avoid overfitting.
+A dataset typically consists of two separate sets of images, one for training the model and one to test its accuracy on unseen inputs to avoid overfitting.
 Each of these sets contains pairs of an input instance and the correct label.
 In this paper, we focus on the image classification problem, where given an image, the neural network shall correctly determine the class depicted in the image.
+Training pairs, thus, consist of an image and pictured class.
 
 Neural networks consist of multiple neurons.
 A neuron has some weighted connections, for example to previous neurons, with weights $w$ and a bias $b$.
@@ -162,14 +164,14 @@ Typical activation functions are $\tanh$, the logistic function, or more recentl
 The output $\phi(w^Tx+b)$ of the neuron can then be passed as input to the next neuron.
 
 Multiple neurons can be organized into \emph{layers} where the output of each layer is passed as input to the next.
-The input data -- for example, the pixel values of a training image -- is passed to the first layer.
+The input data---for example, the pixel values of a training image---is passed to the first layer.
 The network output is encoded in the last layer's output.
 %
 In \emph{deep learning}, the number of different layers is high.
 This enables the model to learn hierarchical features from the raw input data instead of using hand-crafted features \cite{chilimbi2014-Project-Adam}.
 %
 There are different types of layers, depending on how the neurons are connected to the previous layer.
-In computer vision and image classification, the most important types of layers are fully-connected layers, convolutional layers, and pooling-layers.
+In computer vision and image classification, the most important types of layers are fully-connected layers, convolutional layers, and pooling layers.
 
 In \emph{fully-connected layers}, each neuron of the first layer is connected to each neuron in the second layer.
 These layers consist of many connections which result in numerous parameters.
@@ -177,17 +179,17 @@ Fully-connected layers are typically used to determine the image class once the 
 
 \emph{Convolutional layers} are based on the convolutional filtering used in digital image processing, for example, in the Gaussian blur filter or edge detection filters like Sobel or Prewitt \cite{Stockman:2001:CV:558008}.
 They use prior knowledge, for example, a hierarchy in the image features \cite{lecun2010convolutional}, to reduce the number of parameters.
-Convolutional layers consist of a small filter -- usually between 3x3 and 7x7 pixels -- that is shifted over the image.
+Convolutional layers consist of a small filter---usually between 3x3 and 7x7 pixels---that is shifted over the image.
 At each pixel, the weighted sum of its surrounding pixels is computed and passed to the activation function.
 Instead of connecting individual neurons with weighted connections, the filter weights are therefore reused for each pixel.
 This reduces the number of parameters significantly, which in turn speeds up the training.
-Convolutional layers are often used together with pooling layers as features extractors \cite{lecun2010convolutional}.
+Convolutional layers are often used as features extractors together with pooling layers \cite{lecun2010convolutional}.
 
 \emph{Pooling layers} aggregate adjacent pixels to a single output pixel using either the sum, the average or the maximum of the pooled pixels.
 Similarly to convolutional layers, the pooling operation is shifted over the image and repeatedly applied to the different parts of the image.
 Pooling layers reduce the spatial size of the input image and generally improve the model's robustness to noise and clutter in the input \cite{lecun2010convolutional,chilimbi2014-Project-Adam}.
 
-A \emph{loss function} is used to evaluate the accuracy by comparing the network's output to the actual, expected output.
+A \emph{loss function} is used to evaluate the accuracy of the model by comparing the network's output to the actual, expected output.
 Different loss functions for different types of problems exist.
 For image classification, a typical loss function is the cross-entropy loss.
 %
@@ -204,14 +206,25 @@ Instead of computing the gradient over the entire training set at once, SGD part
 For each batch, we compute an averaged gradient using backpropagation and update the model parameters accordingly.
 %
 A \emph{training epoch} consists of processing each batch in the training set once.
-Usually, multiple epochs -- that is multiple passes through the training set -- are required to train a neural network to convergence \cite{chilimbi2014-Project-Adam}.
+Usually, multiple epochs---that is multiple passes through the training set---are required to train a neural network to convergence \cite{chilimbi2014-Project-Adam}.
 
 There are many different hyper-parameters to tune the neural network and its training.
 In this paper, only the \emph{batch size}, that is the number of training instances per batch, is of importance.
 A larger batch size generally reduces the training time per epoch while increasing the number of epochs required to reach a certain accuracy.
 As we will see in \autoref{sec:parallelizing_neural_networks} and \ref{sec:experimental_results}, the batch size can also affect the scalability of some parallelization techniques.
 
-% TODO additional? GPUs for neural networks and why they work well, short MPI introduction
+Nowadays, many implementations of neural networks utilize the processing power of \emph{graphic processing units (GPUs)} to speed up the training.
+GPUs are heavily parallel and use more pipelining than CPUs \cite{oh2004gpu}.
+They excel at performing the same operation many times---for example, on many different inputs \cite{oh2004gpu}.
+When training neural networks, instead of computing the weighted sums individually for each neuron, multiple neurons can be processed together using matrix multiplication \cite{oh2004gpu}.
+This matrix multiplication can be computed very efficiently on the GPU.
+Training neural networks on a GPU is thus often twenty-times faster than on a CPU \cite{oh2004gpu,strigl2010performance}.
+
+The MPI message passing interface \cite{walker1996mpi} defines a set of operations to communicate between different processes by sending messages.
+This includes blocking and non-blocking point-to-point communication and multiple collective operations for groups of processes.
+In this paper, we require only the all-reduce operation.
+Each process in the communication group holds some value to be aggregated.
+All-reduce collects these value, aggregates them using, for example, a sum function, and distributes the aggregated value to all participating processes.
 
 % section preliminaries (end)
 
