@@ -4374,17 +4374,17 @@ between column types.}%
 %
 %
 % Modify Latex2e \@citex to separate citations with "], ["
-\def\@citex[#1]#2{%
-  \let\@citea\@empty
-  \@cite{\@for\@citeb:=#2\do
-    {\@citea\def\@citea{], [}%
-     \edef\@citeb{\expandafter\@firstofone\@citeb\@empty}%
-     \if@filesw\immediate\write\@auxout{\string\citation{\@citeb}}\fi
-     \@ifundefined{b@\@citeb}{\mbox{\reset@font\bfseries ?}%
-       \G@refundefinedtrue
-       \@latex@warning
-         {Citation `\@citeb' on page \thepage \space undefined}}%
-       {\hbox{\csname b@\@citeb\endcsname}}}}{#1}}
+% \def\@citex[#1]#2{%
+%   \let\@citea\@empty
+%   \@cite{\@for\@citeb:=#2\do
+%     {\@citea\def\@citea{], [}%
+%      \edef\@citeb{\expandafter\@firstofone\@citeb\@empty}%
+%      \if@filesw\immediate\write\@auxout{\string\citation{\@citeb}}\fi
+%      \@ifundefined{b@\@citeb}{\mbox{\reset@font\bfseries ?}%
+%        \G@refundefinedtrue
+%        \@latex@warning
+%          {Citation `\@citeb' on page \thepage \space undefined}}%
+%        {\hbox{\csname b@\@citeb\endcsname}}}}{#1}}
 
 % V1.6 we create hooks for the optional use of Donald Arseneau's
 % cite.sty package. cite.sty is "smart" and will notice that the
@@ -4399,8 +4399,8 @@ between column types.}%
 % that \cite.
 % Thanks to Mr. Arseneau for providing the required format arguments
 % to produce the IEEE style.
-\def\citepunct{], [}
-\def\citedash{]--[}
+% \def\citepunct{], [}
+% \def\citedash{]--[}
 
 % V1.7 default to using same font for urls made by url.sty
 \AtBeginDocument{\csname url@samestyle\endcsname}
