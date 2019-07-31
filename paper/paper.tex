@@ -5,6 +5,7 @@
 
 % configs from ba
 \usepackage[english]{babel}
+\usepackage{booktabs}
 \usepackage[raiselinks=true,
 			bookmarks=true,
 			bookmarksopenlevel=1,
@@ -29,6 +30,13 @@
   \def\paragraphautorefname{Paragraph}%
   \def\paragraphrefname{Paragraph}%
 }
+
+\usepackage{array}
+\usepackage{adjustbox}
+\usepackage{tablefootnote}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
 
 \ifCLASSOPTIONcompsoc
   % IEEE Computer Society needs nocompress option
@@ -454,8 +462,13 @@ Both machines use Red Hat Enterprise Linux 7 as operating system.
 
 \section{Experimental Results} % (fold)
 \label{sec:experimental_results}
-% illustrate results with plots etc.
-% describe and interpret results
+
+This section gives an overview of our experimental results.
+The models, datasets, and relevant hyper-parameters are given in \autoref{sub:methodology}.
+We first discuss how changing the batch size hyper-parameter affects the training in \autoref{sub:impact_of_the_batch_size}.
+In \autoref{sub:communication_time}, we compare the computation and communication times.
+%for different batch sizes, on different machines, and using different numbers of processes.
+Finally, \autoref{sub:speedup} examines the speedups reached by the implementation.
 
 \subsection{Methodology} % (fold)
 \label{sub:methodology}
@@ -493,29 +506,57 @@ This threshold is determined by rounding up the maximum of the minimal validatio
 
 \subsection{Impact of the batch size} % (fold)
 \label{sub:impact_of_the_batch_size}
+As mentioned before, the batch size is an important hyper-parameter for data parallel training algorithms.
+In general, the larger the batch size, the more epochs are required to reach convergence.
+Larger batch sizes reduce the loss improvement per epoch, as the gradients are averaged across more training images, whereas with small batch sizes, many small adjustments can be made.
+%
+This effect is demonstrated in \autoref{fig:loss_by_epoch}.
+While smaller batch sizes achieve a good validation loss of $0.5$ or less within the first few epochs, the loss curve flattens the larger the batch size.
 
-\begin{figure}[h]
+\begin{figure}[ht]
 \centering
 \includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-epochs--MNIST}
-\caption{The validation loss after each epoch for different batch sizes using sequential training, LeNet5 and MNIST.
+\caption{The validation loss after each epoch for different batch sizes using sequential training, LeNet5, and MNIST.
 As expected, the smaller the batch size, the faster is the model's convergence.
 However, at the same time, a larger batch size speeds up the training time per epoch as can be seen in \autoref{fig:loss_by_time}.}
 \label{fig:loss_by_epoch}
 \end{figure}
+
+While the convergence is reduced for larger batch sizes, they also speed up the training per epoch, as there are fewer optimization steps in each epoch.
+This leads to a trade-off between a greater improvement per epoch on the one hand, and faster epochs, on the other hand.
+In \autoref{fig:loss_by_time}, this trade-off is illustrated by the validation loss over the training time.
+For smaller batch sizes, the two effects cancel each other out, resulting in very similar improvements over time.
+However, for larger batch sizes, the validation loss is visibly higher, as the reduced convergence carries more weight than the faster epoch times.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=2.5in]{../evaluation/diagrams-paper/validation-loss-by-time-and-bs--MNIST}
+\caption{The validation loss by training time for different batch sizes using sequential training, LeNet5, and MNIST.
+This figure is related to \autoref{fig:loss_by_epoch} to the extent that the same data is displayed---once per epoch and once per training time.
+Displaying the loss by time demonstrates how larger batch sizes result in faster epochs but selecting too large batch sizes can compromise the convergence.}
+\label{fig:loss_by_time}
+\end{figure}
+
+For data parallelism, we generally try to increase the batch size as far as possible without losing too much quality.
+Theoretically, the data parallel scalability can be arbitrarily high by using larger and larger batch sizes \cite{krizhevsky2014-One-weird-trick} as a higher batch size improves the scalability.
+% We revisit this impact of the batch size on the scalability when discussing the speedup in \autoref{sub:speedup}. % TODO do this!
 
 % subsection impact_of_the_batch_size (end)
 
 \subsection{Communication Time} % (fold)
 \label{sub:communication_time}
 
-\begin{figure}[h]
+We now compare the time spent on computation and communication.
+In each epoch, we measure the time to feed-forward the training images, compute the gradients with back-propagation, and update the model with optimization steps as computation time.
+The communication time is how long the processes spent on exchanging the gradients with all-reduce and computing the average gradient.
+
+\begin{figure}[ht]
 \centering
 \includegraphics[width=2.5in]{../evaluation/diagrams-paper/epoch-time--LSDF-GPU-MNIST}
-\caption{The ratio of computation to communication time per epoch for different batch sizes using parallel training on four GPUs, LeNet5 and MNIST.
-As expected, both the computation and the communication decreases the larger the batch size.
+\caption{The ratio of computation to communication time per epoch for different batch sizes using parallel training on four GPUs, LeNet5, and MNIST.
+As expected, both the computation and communication decreases the larger the batch size.
 The reduction in computation time is in accordance with the results in \autoref{sub:impact_of_the_batch_size}.
-Furthermore, the larger each batch, the fewer batches are in each epoch.
-Since communication is required after each batch, larger batches therefore results in less communication phases in total, and thus less time spent communicating.}
+Larger batches also result in less communication time, as there are fewer communication phases per epoch.}
 \label{fig:comm_time_by_batch_size}
 \end{figure}
 
@@ -537,6 +578,57 @@ Since communication is required after each batch, larger batches therefore resul
   \hrulefill
 \end{figure*}
 
+\autoref{fig:comm_time_by_batch_size} depicts the average computation and communication time per epoch using four GPUs.
+Expectedly, the computation time decreases the larger the batch size.
+This corresponds to the sequential results discussed in the previous \autoref{sub:impact_of_the_batch_size}.
+The larger the batch size, the less computation per epoch is required.
+%
+Furthermore, larger batches also cause a decrease in communication time.
+This is also a very expected result:
+The larger each batch, the fewer batches there are in each epoch.
+Since communication is required after each batch, larger batches, therefore, results in fewer communication phases in total, and thus less time spent communicating.
+
+
+In \autoref{fig:comm_time_by_machine}, we compare the ratio between computation and communication over different machines and for different process counts.
+In general, when using more processes, we would expect a decrease in computation time and an increase in communication time.
+
+On LSDF using CPUs---that is, Subfigure A in \autoref{fig:comm_time_by_machine}---we observe precisely this expected effect.
+The computation time is cut almost in half when using twice as many processes.
+Compared to the computation, communication only makes up a small part of the training time.
+This is explained by the fact that LSDF is a shared-memory machine which makes communication between different processes very efficient.
+Still, when increasing the number of processes, there is a slight increase in communication time.
+
+Subfigure B illustrates the training on LSFD's GPUs.
+Again the computation time decreases the more GPUs we utilize.
+However, counter-intuitively, there is also less time spent on communication.
+%
+To fully explain this observation, we would require more intense measurements---for example, measuring the communication separately for CPU-to-GPU, GPU-to-CPU, and CPU-to-CPU communication.
+
+One possible cause for the decrease in communication time is PCI-E piggybacking.
+To exchange the gradients across multiple GPUs with MPI, we first need to transfer them to the CPU, then communicate, and finally transfer the results back to the GPU.
+Since the CPU-to-CPU communication is very fast on LSDF, see Subfigure A, most of the communication time is presumably spent on the transfers between the GPU and CPU.
+%
+The GPUs are connected via PCI-E, and always two GPUs share a PCI-E switch.
+Packages sent via PCI-E must be acknowledged by the receiver.
+PCI-E piggybacking occurs when these acknowledgments are attached to other packages, which improves the communication efficiency.
+Additionally, the PCI-E switch might group multiple packages from its two GPUs together reducing the total package count.
+As such, PCI-E might increase the communication efficiency and reduce the communication time when using more GPUs.
+
+Finally, the results on ForHLR II are displayed in Subfigure C.
+Unexpectedly, the communication increases drastically for more than four processes.
+Again, a more detailed evaluation is required to be certain what causes this effect.
+Partially, it might be caused by ForHLR II's NUMA architecture resulting in different communication speeds depending on the exact location of the core.
+However, NUMA should not have such a dramatic effect as currently measured.
+We, therefore, believe there to be some other, yet to determine, cause of this significant increase in communication time.
+
+Another cause for the high communications times on both ForHLR II and LSDF's GPUs might be which of the sockets are used to train on.
+Especially when using GPUs, the communication could be decelerated significantly when a GPU is assigned to a CPU on the ``wrong'' socket, which can increase the time to move gradients between this CPU-GPU pair.
+This possible cause was proposed by the discussion after the talk to this paper.
+However, we were not yet able to test it experimentally.
+
+In addition to the communicational effects, we can observe the general speedup of GPU training over using CPUs.
+When comparing Subfigures A and B in \autoref{fig:comm_time_by_machine}, despite the higher communication times, using GPUs is consistently more than five times faster than using CPUs on LSDF.
+
 % subsection communication_time (end)
 
 \subsection{Speedup} % (fold)
@@ -546,16 +638,52 @@ Since communication is required after each batch, larger batches therefore resul
   \normalsize
   \centering
   \includegraphics[width=\textwidth]{../evaluation/diagrams-paper/speedup--LSDF-GPU-MNIST}
-  \caption{The training speedup (solid with line points) and efficiency (dashed) for LeNet5 on MNIST for different batch sizes using GPUs for training.
+  \caption{The training speedup (solid with line points) and efficiency (dashed) for LeNet5 on MNIST for different batch sizes on up to four GPUs.
   Subplot A depicts the speedup (and efficiency) per epoch.
   As expected, larger batch sizes scale better due to the reduced communication.
-  In Subplot B, the total training time until a certain threshold of the validation loss -- in this case $0.5$ -- is reached.
-  TODO interpretation.
-  }
+  In Subplot B, we consider the total training time up to a certain threshold of the validation loss---in this case, $0.5$---is reached.
+  We observe that the scalability is reduced compared to Subplot A.
+  This means that the parallelization reduces the training improvement per epoch compared to the sequential training.}
   \label{fig:speedup}
   \vspace*{4pt}
   \hrulefill
 \end{figure*}
+
+We consider two different versions of the speedup.
+First, we analyze the speedup per epoch, where we compare the training time per epoch for multiple processes to the training time for a single process.
+The speedup per epoch for different batch sizes is displayed in Subfigure A of \autoref{fig:speedup}.
+We achieve speedups of up to $3.21$ on four GPUs when using the highest batch size $512$.
+As expected, larger batch sizes scale better due to the reduced communication per epoch we observed in \autoref{sub:communication_time}.
+
+Subfigure B depicts the total training speedup.
+As described in \autoref{sub:methodology}, we only consider the epochs until a certain loss threshold is reached.
+When also considering the validation loss, the parallel training does not scale as good, reducing the maximum speedup on four GPUs to $2.60$.
+This is due to the sequential training producing more improvement per epoch than the parallel version.
+%
+A more thorough investigation is required to fully determine why the parallelization impedes the training.
+However, we believe that at least some of the lost accuracy can be attributed to our implementation of distributing and shuffling the training data.
+As described in \autoref{sub:methodology}, each process shuffles its training data separately.
+This reduces the overall shuffle variance, the more processes are used, yet this randomization is essential for the generalization of the model.
+
+\begin{table}[ht]
+\renewcommand{\arraystretch}{1.3}
+\caption{An Overview of Both the Total Speedup and the Speedup per Epoch with Batch Size 16 and 512 for the Different Hardware Variations.}
+\label{tab:speedup}
+\centering
+\begin{tabular}{rR{8mm}R{8mm}R{8mm}R{8mm}}
+\toprule
+            & \multicolumn{2}{r}{\bfseries Epoch Speedup} & \multicolumn{2}{r}{\bfseries Total Speedup}\\
+Batch Size            & 16                  & 512                       & 16                  & 512\\
+\midrule
+LSDF GPU, p=4         & 1.43                & 3.21                      & 0.95                & 2.60\\
+LSDF CPU, p=16        & 6.83                & 7.70                      & 6.83                & 6.23\\
+ForHLR II CPU, p=16   & 0.03                & 0.30                      & 0.03                & 0.37\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\autoref{tab:speedup} gives exact numbers for both the total speedup and the speedup per epoch on all three tested hardware variants.
+In accordance with the high communication times observed in \autoref{sub:communication_time}, ForHLR II produces only devastating speedups of at most $0.37$ on $16$ processes.
 
 % subsection speedup (end)
 
