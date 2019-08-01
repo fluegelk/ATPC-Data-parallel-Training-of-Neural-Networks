@@ -198,8 +198,8 @@ Options:
         now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
         config["date"] = now
         unique_id = uuid.uuid4()
-        trainObj.saveResults("outputs/results__" + now + "__" +
-                             str(unique_id), comment=metadata, config=config)
+        trainObj.save_results("outputs/results__" + now + "__" +
+                              str(unique_id), comment=metadata, config=config)
 
 
 if __name__ == "__main__":
