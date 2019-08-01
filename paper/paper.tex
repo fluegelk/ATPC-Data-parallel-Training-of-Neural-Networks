@@ -160,7 +160,7 @@ Each of these sets contains pairs of an input instance and the associated labels
 In this paper, we focus on the image classification problem, where given an image, the neural network shall correctly determine the class depicted in the image.
 Training pairs, thus, consist of an image and the associated class.
 Consequently, we use the terms ``label'' and ``class'' synonymously in the following.
-When training a model, we adjust model such that it assigns the correct labels to an input image.
+When training a model, we adjust the model such that it assigns the correct labels to an input image.
 
 Neural networks consist of multiple neurons.
 A neuron has some weighted connections, for example to previous neurons, with weights $w$ and a bias $b$.
@@ -179,7 +179,7 @@ There are different types of layers, depending on how the neurons are connected 
 In computer vision and image classification, the most important types of layers are fully-connected layers, convolutional layers, and pooling layers.
 
 In \emph{fully-connected layers}, each neuron of the first layer is connected to each neuron in the second layer.
-These layers consist---as their name suggests---of a fully-connected mesh of connections which results in a substantial amount parameters.
+These layers consist---as their name suggests---of a fully-connected mesh of connections which results in a substantial amount of parameters.
 Fully-connected layers are typically used as final layers of the model, predicting the actual class once the features have been extracted.
 
 \emph{Convolutional layers} are based on the convolutional filtering used in digital image processing, for example, in the Gaussian blur filter or edge detection filters like Sobel and Prewitt~\cite{Stockman:2001:CV:558008}.
@@ -199,7 +199,7 @@ Different loss functions for different types of problems exist.
 For image classification, a typical loss function is the cross-entropy loss.
 %
 In general, neural networks can be thought of as ``large parameterized function[s]''~\cite{paine2013-GPU-async-SGD} where all the weights and biases are model parameters that can be modified to improve the accuracy.
-When training a neural network, we aim to minimize the loss by adjusting its parameters.
+When training a neural network, we aim to minimize the loss by adjusting these parameters.
 
 A widely used optimization strategy for training neural networks is \emph{stochastic gradient descent (SGD)}. % TODO cite?
 Gradient descent is an optimization algorithm to find local minima by adjusting the parameters in the opposite direction of the gradient.
@@ -221,7 +221,7 @@ As we will see in \autoref{sec:parallelizing_neural_networks} and \ref{sec:exper
 Nowadays, many implementations of neural networks utilize the processing power of \emph{graphic processing units (GPUs)} to speed up the training.
 GPUs are heavily parallel and use more pipelining than CPUs~\cite{oh2004gpu}.
 In general, they perform in SIMD mode---that is, applying a single instruction to multiple inputs.
-This makes GPUs very suited for vector processing.
+GPUs are therefore well suited for vector processing.
 %
 When training neural networks, instead of computing the weighted sums individually for each neuron, multiple neurons can be processed together using matrix multiplication, which can then be computed very efficiently on the GPU~\cite{oh2004gpu}.
 Training neural networks on a GPU is thus often orders of magnitude faster than on a CPU~\cite{oh2004gpu,strigl2010performance}.
@@ -230,7 +230,7 @@ The \emph{MPI message passing interface}~\cite{walker1996mpi} defines a set of o
 This includes blocking and non-blocking point-to-point communication and multiple collective operations for groups of processes.
 In this paper, we require only the all-reduce operation.
 Each process in the communication group holds some value to be aggregated.
-All-reduce collects these value, aggregates them using, for example, a sum function, and distributes the aggregated value to all participating processes.
+All-reduce collects these values, aggregates them using, for example, a sum function, and distributes the aggregated value to all participating processes.
 
 % section preliminaries (end)
 
@@ -270,7 +270,7 @@ They compare different communication algorithms and find that reduction trees ou
 Additionally, they note that a larger batch size can improve the scalability even further.
 
 Focusing on model parallelism, Coates et al.~\cite{coates2013-DL-COTS-HPC} investigate training on Commodity Off-The-Shelf High-Performance Computing (COTS HPC) systems consisting of a cluster of GPUs.
-They provide several solutions to the challenges induced by this infrastructure, such as communications bottlenecks and the more complicated design necessary to arrange training on many GPUs.
+They provide several solutions to the challenges induced by this infrastructure, such as communication bottlenecks and the more complicated design necessary to arrange training on many GPUs.
 
 Both model and data parallelism are also frequently combined to hybrid techniques.
 For example, Krizhevsky~\cite{krizhevsky2014-One-weird-trick} proposes to use data parallelism in the convolutional layers and model parallelism in the fully-connected layers of a single convolutional neural network.
@@ -280,7 +280,7 @@ Unlike many other implementations, they do not alter hyper-parameters such as th
 
 % Speech DNNs
 There have also been several attempts at parallelizing deep neural networks for speech processing.
-However, they generally scale significantly worse than the typical CNNs used in computer vision due to the higher amount of fully-connected layers~\cite{dean2012-Large-scale-distributed,seide2014-Speech-DNNs}.
+However, they generally scale significantly worse than the typical CNNs used in computer vision due to the higher amount of fully-connected and auto-regressive layers~\cite{dean2012-Large-scale-distributed,seide2014-Speech-DNNs}.
 Seide et al.~\cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic} investigate parallelizing these types of networks using both model and data parallelism.
 They focus on adjusting the learning rate and mini-batch size~\cite{seide2014-Speech-DNNs} and reducing the amount of communicated data~\cite{seide2014-1-bit-stochastic} to improve the scalability.
 Nevertheless, they conclude that any ``dramatic speed-ups'' for speech DNNs can only be reached by fundamentally changing and parallelizing the underlying training algorithm instead of merely applying model or data parallelism~\cite{seide2014-Speech-DNNs,seide2014-1-bit-stochastic}.
@@ -353,8 +353,8 @@ To keep the model copies consistent over all machines, the gradients are communi
 Instead of communicating and aggregating the gradients, it is also possible to first apply local parameter updates, followed by parameter synchronization between the processes.
 %
 Data parallelism is generally more efficient if the computation per weight is high, as the model parameters (or gradients) are communicated.
-High computation per parameter is very typical for convolutional layers where the kernel weights are reused for all input pixels.
-%
+High computation per parameter is very typical for convolutional layers where the kernel weights are reused for all input pixels~\cite{krizhevsky2014-One-weird-trick}.
+
 An important hyper-parameter for data parallelism is the batch size.
 Since the gradients are usually communicated once per batch, we can reduce the required communication by decreasing the number of batches, that is increasing the batch size.
 According to Krizhevsky, data parallelism can be ``arbitrarily efficient'' with a large enough batch size~\cite{krizhevsky2014-One-weird-trick}.
@@ -402,7 +402,7 @@ This process is also illustrated in \autoref{fig:parameter_server} by Dean et al
 \includegraphics[width=2.5in]{images/parameter-server.pdf}
 \caption{
 A schematic illustration of a parameter server by Dean et al.~\cite{dean2012-Large-scale-distributed}.
-The parameter server receives gradients $\delta w$ from the workers and applies them to its model parameters.
+The parameter server receives gradients $\Delta w$ from the workers and applies them to its model parameters.
 Workers can fetch parameters $w$ from the server to update their local model replicas.
 Each worker has its own share of the training data---labeled as data shards in this diagram---which it uses to compute the local gradients.
 }
@@ -411,8 +411,8 @@ Each worker has its own share of the training data---labeled as data shards in t
 
 There are different approaches at which times communication takes place.
 The simplest approach, as described by Dean et al., is sending a gradient and fetching parameters after every mini-batch---that is, the subset of a batch assigned to this worker~\cite{dean2012-Large-scale-distributed}.
-They also suggest reducing the commutation by increasing this interval to multiple batches.
-The interval for sending gradients and fetching parameters are not required to be equal~\cite{dean2012-Large-scale-distributed}.
+They also suggest reducing the commutation by increasing this interval to multiple mini-batches.
+The intervals for sending gradients and fetching parameters are not required to be equal~\cite{dean2012-Large-scale-distributed}.
 
 Since the workers only communicate with the parameter server and never with other workers, they are independent of each other.
 There is, thus, no synchronization barrier.
@@ -440,9 +440,9 @@ Synchronous SGDs can scale comparably well or even better than asynchronous appr
 
 The training is implemented in Python v3.6.6 with PyTorch v1.1.0~\cite{paszke2017automatic}, Torchvision v0.3.0, and Numpy v1.16.4.
 On the GPU, CUDA v10.0 is used for computation.
-For communication, we use OpenMPI v3.1 with the python wrapper MPI4Py v3.0.2.
+For communication, we use OpenMPI v3.1 with the Python wrapper MPI4Py v3.0.2.
 The datasets were converted to HDF5 format using HDF5 v1.10 (on ForHLR II) and v1.8.12 (on LSDF) and are read via H5Py v2.9.0.
-The code is available at \url{https://github.com/fluegelk/ATPC-Data-parallel-Training-of-Neural-Networks}.
+% The code is available at \url{https://github.com/fluegelk/ATPC-Data-parallel-Training-of-Neural-Networks}.
 
 We evaluated our implementation on two different machines:
 The \emph{LSDF} server consists of two Intel Xeon E5-2630 v3 processors running at 3.20~GHz with eight cores each and two threads per core.
@@ -518,7 +518,7 @@ As expected, the smaller the batch size, the fewer epochs are required for conve
 \end{figure}
 
 While the convergence is reduced for larger batch sizes, they also speed up the training per epoch, as there are fewer optimization steps in each epoch.
-This leads to a trade-off between a greater improvement per epoch on the one hand, and faster epochs, on the other hand.
+This leads to a trade-off between a greater improvement per epoch on the one hand, and faster epochs, on the other.
 In \autoref{fig:loss_by_time}, this trade-off is illustrated by the validation loss over the training time.
 For smaller batch sizes, the two effects cancel each other out, resulting in very similar improvements over time.
 However, for larger batch sizes, the validation loss is visibly higher, as the reduced convergence carries more weight than the faster epoch times.
@@ -542,7 +542,7 @@ Theoretically, the data parallel scalability can be arbitrarily high by using la
 
 We now compare the time spent on computation and communication.
 In each epoch, we measure the time to feed-forward the training images, compute the gradients with back-propagation, and update the model with optimization steps as computation time.
-The communication time is how long the processes spent on exchanging the gradients with all-reduce and computing the average gradient.
+The communication time corresponds to how long the processes spent on exchanging the gradients with all-reduce and computing the average gradient.
 
 \begin{figure}[ht]
 \centering
@@ -578,7 +578,7 @@ This corresponds to the sequential results discussed in the previous \autoref{su
 The larger the batch size, the less computation per epoch is required.
 %
 Furthermore, larger batches also cause a decrease in communication time.
-This is also a very expected result:
+This is also a highly expected result:
 The larger each batch, the fewer batches there are in each epoch.
 Since communication is required after each batch, larger batches, therefore, results in fewer communication phases in total, and thus less time spent communicating.
 
@@ -635,7 +635,7 @@ When comparing Subfigures A and B in \autoref{fig:comm_time_by_machine}, despite
   \caption{The training speedup (solid with line points) and efficiency (dashed) for LeNet5 on MNIST for different batch sizes on up to four GPUs.
   Subplot A depicts the speedup (and efficiency) per epoch.
   As expected, larger batch sizes scale better due to the reduced communication.
-  In Subplot B, we consider the total training time up to a certain threshold of the validation loss---in this case, $0.5$---is reached.
+  In Subplot B, we consider the total training time until a certain threshold of the validation loss---in this case, $0.5$---is reached.
   We observe that the scalability is reduced compared to Subplot A.
   This means that the parallelization reduces the training improvement per epoch compared to the sequential training.}
   \label{fig:speedup}
@@ -686,7 +686,7 @@ In accordance with the high communication times observed in \autoref{sub:communi
 \section{Conclusion} % (fold)
 \label{sec:conclusion}
 
-In this paper, we survey different techniques to parallelizing and distributing the training of neural networks, focusing primarily on convolutional neural networks for computer vision.
+In this paper, we survey different techniques to parallelize and distribute the training of neural networks, focusing primarily on convolutional neural networks for computer vision.
 We discuss both model and data parallelism, including the different data parallel versions of synchronous and asynchronous SGD.
 %
 We implement one such synchronous SGD and evaluate it by training CNNs on the two image classification dataset MNIST and CIFAR10.
