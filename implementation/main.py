@@ -1,10 +1,8 @@
 import torch
-import torchvision
 from enum import Enum
 import numpy as np
 import random
 import datetime
-import math
 from mpi4py import MPI
 import sys
 import getopt
@@ -12,30 +10,9 @@ import uuid
 
 comm = MPI.COMM_WORLD
 
-import HDF5Adapter as h5
 import training
-import testing
 import models
-from datasets import *
-
-
-class Model(Enum):
-    PyTorchTutorialNet = 1
-    LeNet5 = 2
-    LeNet5Updated = 3
-    AlexNet = 4
-    AlexNetPool = 5
-
-
-class DataLoader(Enum):
-    SequentialHDF5 = 1
-    ParallelHDF5 = 2
-    Torch = 3
-
-
-class Training(Enum):
-    Sequential = 1
-    AllReduce = 2
+import datasets
 
 
 class Device(Enum):
@@ -43,91 +20,48 @@ class Device(Enum):
     GPU = 2
 
 
-def createNet(model, in_channels=3, num_classes=10):
-    if model is Model.PyTorchTutorialNet:
-        return models.PyTorchTutorialNet(in_channels, num_classes)
-    elif model is Model.LeNet5:
-        return models.LeNet5(in_channels, num_classes, updated=False)
-    elif model is Model.LeNet5Updated:
-        return models.LeNet5(in_channels, num_classes, updated=True)
-    elif model is Model.AlexNet:
-        return models.AlexNet(in_channels, num_classes, noFeaturePooling=True)
-    elif model is Model.AlexNetPool:
-        return models.AlexNet(in_channels, num_classes, noFeaturePooling=False)
-    print("Error: invalid model type")
-    sys.exit(1)
-
-
-def createDataLoaders(dlType, path, batch_size, device, dataset=DataSet.CIFAR10):
-    if dlType is DataLoader.SequentialHDF5:
-        trainLoader = h5.HDF5DataLoader(path, batch_size, train=True, device=device)
-        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False, device=device)
-        return trainLoader, testLoader, testLoader.classes
-    elif dlType is DataLoader.ParallelHDF5:
-        trainLoader = h5.ParallelHDF5DataLoader(path, batch_size, train=True, device=device)
-        testLoader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False, device=device)
-        return trainLoader, testLoader, testLoader.classes
-    elif dlType is DataLoader.Torch:
-        if dataset is DataSet.CIFAR10:
-            return loadTorchCIFAR10(path, True, batch_size)
-        elif dataset is DataSet.MNIST:
-            return loadTorchMNIST(path, True, batch_size)
-    print("Error: invalid data loader type")
-    sys.exit(1)
-
-
-def createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs=math.inf,
-                   max_epochs_without_improvement=10, printProgress=False):
-    if trainingType is Training.Sequential:
-        return training.SequentialTraining(net, criterion, optimizer, trainLoader,
-                                           testLoader, max_epochs, max_epochs_without_improvement, printProgress)
-    elif trainingType is Training.AllReduce:
-        return training.AllReduceTraining(net, criterion, optimizer, trainLoader,
-                                          testLoader, max_epochs, max_epochs_without_improvement, printProgress)
-    print("Error: invalid training type")
-    sys.exit(1)
-
-
-def train(datasetType, dataset_path, modelType, dataLoaderType, trainingType, max_epochs,
-          max_epochs_without_improvement, learning_rate, momentum, batch_size, device, printProgress=False):
+def train(datasetType, dataset_path, modelType, dataLoaderType, trainingType,
+          max_epochs, max_epochs_without_improvement, learning_rate, momentum,
+          batch_size, device, printProgress=False):
     # Load Data
-    path = dataset_path if dataLoaderType is DataLoader.Torch else (dataset_path + datasetType.name + ".hdf5")
-    trainLoader, testLoader, classes = createDataLoaders(dataLoaderType, path,
-                                                         batch_size, device, dataset=datasetType)
+    path = dataset_path + datasetType.name + ".hdf5"
+    trainLoader, testLoader, classes = datasets.create_dataloaders(
+        dataLoaderType, path, batch_size, device, dataset=datasetType)
 
     # Create net and move to correct device
-    in_channels = 3 if datasetType is DataSet.CIFAR10 else 1
+    in_channels = 3 if datasetType is datasets.DataSet.CIFAR10 else 1
     num_classes = 10
-    net = createNet(modelType, in_channels, num_classes)
+    net = models.create_net(modelType, in_channels, num_classes)
     net.to(device)
 
     # Training
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum)
+    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate,
+                                momentum=momentum)
 
-    trainObj = createTraining(trainingType, net, criterion, optimizer, trainLoader, testLoader, max_epochs,
-                              max_epochs_without_improvement, printProgress)
+    trainObj = training.create_training(trainingType, net, criterion, optimizer, trainLoader,
+                                        testLoader, max_epochs, max_epochs_without_improvement, printProgress)
     trainObj.train()
     return trainObj
 
 
-def setRandomSeeds(seed=0):
+def set_random_seeds(seed=0):
     random.seed(a=seed)  # set python seed
     torch.manual_seed(seed)  # set torch seed
     np.random.seed(seed)  # set numpy seed
 
 
 def main(argv):
-    setRandomSeeds()
+    set_random_seeds()
     torch.set_num_threads(1)
 
     dataset_path = '../datasets/'
 
     # Default Parameters
-    datasetType = DataSet.MNIST
-    modelType = Model.LeNet5Updated
-    dataLoaderType = DataLoader.ParallelHDF5
-    trainingType = Training.AllReduce
+    datasetType = datasets.DataSet.MNIST
+    modelType = models.Model.LeNet5Updated
+    dataLoaderType = datasets.DataLoader.ParallelHDF5
+    trainingType = training.TrainingType.AllReduce
     deviceType = Device.GPU
 
     max_epochs = 200
@@ -161,7 +95,7 @@ Options:
                             [default:LeNet5Updated]
 
     -l --dl --dataloader    Select the data loader, values:
-                            SequentialHDF5, ParallelHDF5, Torch [default:ParallelHDF5]
+                            SequentialHDF5, ParallelHDF5 [default:ParallelHDF5]
 
     -t --training           Select the training, values:
                             Sequential, AllReduce [default:AllReduce]
@@ -194,13 +128,13 @@ Options:
             print(help_text)
             sys.exit()
         elif opt in ("-d", "--data"):
-            datasetType = DataSet[arg]
+            datasetType = datasets.DataSet[arg]
         elif opt in ("-m", "--model", "--net"):
-            modelType = Model[arg]
+            modelType = models.Model[arg]
         elif opt in ("-l", "--dl", "--dataloader"):
-            dataLoaderType = DataLoader[arg]
+            dataLoaderType = datasets.DataLoader[arg]
         elif opt in ("-t", "--training"):
-            trainingType = Training[arg]
+            trainingType = training.TrainingType[arg]
         elif opt in ("-b", "--bs", "--batchsize"):
             batch_size = int(arg)
         elif opt in ("-e", "--epochs"):
@@ -218,10 +152,10 @@ Options:
         elif opt in ("--print-progress"):
             printProgress = True
 
-    if trainingType == Training.Sequential and comm.Get_rank() != 0:
+    if trainingType == training.TrainingType.Sequential and comm.Get_rank() != 0:
         return
 
-    node_count = 1 if trainingType == Training.Sequential else comm.Get_size()
+    node_count = 1 if trainingType == training.TrainingType.Sequential else comm.Get_size()
 
     config = {
         "dataset": datasetType.name,
@@ -247,22 +181,25 @@ Options:
     if deviceType == Device.GPU and node_count > torch.cuda.device_count():
         msg = "Error: selected GPU as device but number of processes ({}) " \
             + "is greater than number of visible GPUs ({}). [Rank {}]"
-        print(msg.format(node_count, torch.cuda.device_count(), comm.Get_rank()))
+        print(msg.format(node_count, torch.cuda.device_count(),
+                         comm.Get_rank()))
         sys.exit(1)
 
     cpu_device = torch.device('cpu')
     gpu_device = torch.device('cuda', comm.Get_rank())
     device = cpu_device if deviceType == Device.CPU else gpu_device
 
-    trainObj = train(datasetType, dataset_path, modelType, dataLoaderType, trainingType,
-                     max_epochs, max_epochs_without_improvement, learning_rate, momentum,
-                     batch_size, device, printProgress)
+    trainObj = train(datasetType, dataset_path, modelType, dataLoaderType,
+                     trainingType, max_epochs, max_epochs_without_improvement,
+                     learning_rate, momentum, batch_size, device,
+                     printProgress)
 
     if keepResults and comm.Get_rank() == 0:
         now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
         config["date"] = now
         unique_id = uuid.uuid4()
-        trainObj.saveResults("outputs/results__" + now + "__" + str(unique_id), comment=metadata, config=config)
+        trainObj.saveResults("outputs/results__" + now + "__" +
+                             str(unique_id), comment=metadata, config=config)
 
 
 if __name__ == "__main__":

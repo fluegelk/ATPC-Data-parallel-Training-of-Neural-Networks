@@ -1,11 +1,36 @@
-import torch
 import torchvision
+
+import sys
 from enum import Enum
+
+import HDF5Adapter as h5
 
 
 class DataSet(Enum):
     MNIST = 1
     CIFAR10 = 2
+
+
+class DataLoader(Enum):
+    SequentialHDF5 = 1
+    ParallelHDF5 = 2
+
+
+def create_dataloaders(dataloader_type, path, batch_size, device, dataset=DataSet.CIFAR10):
+    """
+    Creates and returns two dataloaders of the type given by dataloader_type. Loads the data from the given path.
+    The data is organized in batches of size batch_size and allocated on the given device.
+    """
+    if dataloader_type is DataLoader.SequentialHDF5:
+        trainloader = h5.HDF5DataLoader(path, batch_size, train=True, device=device)
+        testloader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False, device=device)
+        return trainloader, testloader, testloader.classes
+    elif dataloader_type is DataLoader.ParallelHDF5:
+        trainloader = h5.ParallelHDF5DataLoader(path, batch_size, train=True, device=device)
+        testloader = h5.HDF5DataLoader(path, batch_size, train=False, shuffle=False, device=device)
+        return trainloader, testloader, testloader.classes
+    print("Error: invalid data loader type")
+    sys.exit(1)
 
 
 class PaddingWrapper(object):
@@ -24,7 +49,12 @@ class PaddingWrapper(object):
                                                      padding_mode=self.padding_mode)
 
 
-def loadTorchDatasetMNIST(root, download):
+def load_torchvision_MNIST(root, download):
+    """
+    Loads torchvision.datasets.MNIST, downloads required files if necessary.
+    Returns a tuple of the training set, the test set and the class names.
+    Images are padded with 0 to size 32x32 and converted to tensor.
+    """
     # pad MNIST 28x28 images with 2 px to reach same size as CIFAR (32x32)
     transform = torchvision.transforms.Compose([
         PaddingWrapper(padding=2, padding_mode='edge'),
@@ -36,14 +66,12 @@ def loadTorchDatasetMNIST(root, download):
     return trainset, testset, classes
 
 
-def loadTorchMNIST(root, download, batch_size, num_workers=0):
-    trainset, testset, classes = loadTorchDatasetMNIST(root, download)
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return trainLoader, testLoader, classes
-
-
-def loadTorchDatasetCIFAR10(root, download):
+def load_torchvision_CIFAR10(root, download):
+    """
+    Loads torchvision.datasets.CIFAR10, downloads required files if necessary.
+    Returns a tuple of the training set, the test set and the class names.
+    Images are converted to tensor and normalized.
+    """
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -54,8 +82,25 @@ def loadTorchDatasetCIFAR10(root, download):
     return trainset, testset, classes
 
 
-def loadTorchCIFAR10(root, download, batch_size, num_workers=0):
-    trainset, testset, classes = loadTorchDatasetCIFAR10(root, download)
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return trainLoader, testLoader, classes
+def create_HDF5_datasets():
+    """
+    Downloads MNIST and CIFAR10 datasets from torchvision to ../datasets/
+    Converts both datasets to HDF5 and stores them at ../datasets/{MNIST,CIFAR10}.hdf5
+    """
+    root = "../datasets/"
+    download = True
+
+    print("Downloading MNIST:")
+    trainset, testset, classes = load_torchvision_MNIST(root, download)
+    print("Converting MNIST to HDF5:")
+    h5.convert_to_HDF5(root + "MNIST.hdf5", trainset, testset, classes)
+    print("MNIST Done!")
+
+    print("Downloading CIFAR10:")
+    trainset, testset, classes = load_torchvision_CIFAR10(root, download)
+    print("Converting CIFAR10 to HDF5:")
+    h5.convert_to_HDF5(root + "CIFAR10.hdf5", trainset, testset, classes)
+    print("CIFAR10 Done!")
+
+if __name__ == "__main__":
+    create_HDF5_datasets()

@@ -1,30 +1,40 @@
 import h5py
 import math
 import torch
-import torchvision
 import numpy as np
 from mpi4py import MPI
 
-import datasets
 
+def convert_to_HDF5(path, trainset, testset, classes):
+    """
+    Takes a dataset consisting of training and test data (as tensors)
+    and class names and stores it as HDF5 file at the given path.
+    The HDF5 file consists of four datasets:
+        train/images
+        train/labels
+        test/images
+        test/labels
+    Both label datasets contain the class names as attribute 'classes'.
+    """
 
-def convertToHDF5(path, trainset, testset, classes):
     h5file = h5py.File(path, mode='w')  # open file
 
     # write training data to file
     batch_size = len(trainset.data)
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=False)
-    _, [trainData, trainLabels] = next(enumerate(trainLoader))
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                               shuffle=False)
+    _, [train_data, train_labels] = next(enumerate(train_loader))
 
-    h5file.create_dataset("train/images", data=trainData)
-    h5file.create_dataset("train/labels", data=trainLabels)
+    h5file.create_dataset("train/images", data=train_data)
+    h5file.create_dataset("train/labels", data=train_labels)
 
     # write test data to file
     batch_size = len(testset.data)
-    testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
-    _, [testData, testLabels] = next(enumerate(testLoader))
-    h5file.create_dataset("test/images", data=testData)
-    h5file.create_dataset("test/labels", data=testLabels)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                              shuffle=False)
+    _, [test_data, test_labels] = next(enumerate(test_loader))
+    h5file.create_dataset("test/images", data=test_data)
+    h5file.create_dataset("test/labels", data=test_labels)
 
     # set label to class name translation as attribute
     h5file["train/labels"].attrs['classes'] = classes
@@ -34,20 +44,15 @@ def convertToHDF5(path, trainset, testset, classes):
     h5file.close()
 
 
-def convertMNISTToHDF5(root, path, download=True):
-    trainset, testset, classes = datasets.loadTorchDatasetMNIST(root, download)
-    return convertToHDF5(path, trainset, testset, classes)
-
-
-def convertCIFAR10ToHDF5(root, path, download=True):
-    trainset, testset, classes = datasets.loadTorchDatasetCIFAR10(root, download)
-    return convertToHDF5(path, trainset, testset, classes)
-
-
 class HDF5DataLoader(object):
-    """docstring for HDF5DataLoader"""
+    """
+    A dataloader for image classification datasets stored in an HDF5 file
+    created by the convert_to_HDF5 function.
+    The interface strongly resembles the torch.utils.data.DataLoader class.
+    """
 
-    def __init__(self, path, batch_size, train, shuffle=True, device=torch.device('cpu')):
+    def __init__(self, path, batch_size, train, shuffle=True,
+                 device=torch.device('cpu')):
         self.device = device
         self.h5file = h5py.File(path, mode='r')  # open file
 
@@ -117,22 +122,28 @@ class HDF5DataLoader(object):
         raise StopIteration()
 
     def __iter__(self):
-        # TODO: allow calling __iter__ multiple times concurrently on the same data loader?
         self.currentBatch = 0
         return self
 
 
 class ParallelHDF5DataLoader(HDF5DataLoader):
-    """docstring for ParallelHDF5DataLoader"""
+    """
+    A parallel version of the HDF5DataLoader to be used by multiple MPI processes.
+    Additionally takes an MPI communicator with some size p.
+    Instead of batches, each process iterates over mini-batches of size batch_size / p.
+    The data is partitioned and assigned to the processes in the communicator.
+    Each process only shuffles its assigned data and picks its mini-batches from that data.
+    """
 
-    def __init__(self, path, batch_size, train, shuffle=True, device=torch.device('cpu'), comm=MPI.COMM_WORLD):
+    def __init__(self, path, batch_size, train, shuffle=True,
+                 device=torch.device('cpu'), comm=MPI.COMM_WORLD):
         self.comm = comm
-        self.node_count = 1 if comm == None else comm.Get_size()
+        self.node_count = 1 if comm is None else comm.Get_size()
         super().__init__(path, batch_size, train, shuffle, device)
 
     def _load_data(self):
         node_start_index = self.comm.Get_rank() * self.sample_count_per_node
-        node_end_index = (self.comm.Get_rank() + 1) * self.sample_count_per_node
+        node_end_index = node_start_index + self.sample_count_per_node
         self.images = self.images_ref[node_start_index:node_end_index]
         self.labels = self.labels_ref[node_start_index:node_end_index]
 

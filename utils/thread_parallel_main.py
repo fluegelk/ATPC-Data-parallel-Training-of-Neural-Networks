@@ -45,7 +45,7 @@ Options:
                             [default:LeNet5Updated]
 
     -l --dl --dataloader    Select the data loader, values:
-                            SequentialHDF5, ParallelHDF5, Torch [default:ParallelHDF5]
+                            SequentialHDF5, ParallelHDF5 [default:ParallelHDF5]
 
     -p --node_count         Number of threads [default:1]
 

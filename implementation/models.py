@@ -1,6 +1,35 @@
-# Definition of neural networks with rewritten backwards function for data parallelism
 import torch.nn as nn
 import torch.nn.functional as F
+
+import sys
+from enum import Enum
+
+
+class Model(Enum):
+    PyTorchTutorialNet = 1
+    LeNet5 = 2
+    LeNet5Updated = 3
+    AlexNet = 4
+    AlexNetPool = 5
+
+
+def create_net(model, in_channels=3, num_classes=10):
+    """
+    Creates and returns a neural network of the given model type with the
+    specified number of input channels and output classes.
+    """
+    if model is Model.PyTorchTutorialNet:
+        return PyTorchTutorialNet(in_channels, num_classes)
+    elif model is Model.LeNet5:
+        return LeNet5(in_channels, num_classes, updated=False)
+    elif model is Model.LeNet5Updated:
+        return LeNet5(in_channels, num_classes, updated=True)
+    elif model is Model.AlexNet:
+        return AlexNet(in_channels, num_classes, noFeaturePooling=True)
+    elif model is Model.AlexNetPool:
+        return AlexNet(in_channels, num_classes, noFeaturePooling=False)
+    print("Error: invalid model type")
+    sys.exit(1)
 
 
 class PyTorchTutorialNet(nn.Module):

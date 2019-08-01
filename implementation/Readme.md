@@ -9,7 +9,7 @@ Additionally, it might be necessary to install PyTorch manually for the correct 
 
 Create datasets (download from torchvision to '../datasets' if necessary and convert to HDF5 file)
 ```
-python3 createDatasets.py
+python3 datasets.py
 ```
 
 ### Training
